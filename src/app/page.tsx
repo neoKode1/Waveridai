@@ -2,7 +2,7 @@
 
 import React from 'react'
 import Link from 'next/link'
-import { Zap, Waveform, Sparkles, Music, ArrowRight, Volume2, Layers, Cpu } from 'lucide-react'
+import { Zap, AudioWaveform, Sparkles, Music, ArrowRight, Volume2, Layers, Cpu } from 'lucide-react'
 
 export default function LandingPage() {
   return (
@@ -62,7 +62,7 @@ export default function LandingPage() {
                 <ArrowRight className="h-5 w-5" />
               </Link>
               <button className="glass glass-hover text-lg px-8 py-4 rounded-lg flex items-center space-x-2">
-                <Waveform className="h-5 w-5" />
+                <AudioWaveform className="h-5 w-5" />
                 <span>Watch Demo</span>
               </button>
             </div>
@@ -119,59 +119,57 @@ export default function LandingPage() {
               </li>
               <li className="flex items-start space-x-3">
                 <div className="h-2 w-2 rounded-full bg-secondary-500 mt-2"></div>
-                <span>Optional reference audio for style transfer</span>
+                <span>Optional style reference from uploaded audio</span>
               </li>
             </ul>
           </div>
         </div>
       </div>
 
-      {/* Technology Section */}
-      <div className="relative z-10 container mx-auto px-4 py-24">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold mb-4 text-white">Cutting-Edge Technology</h2>
-            <p className="text-neutral-400 text-lg">Built on state-of-the-art machine learning models</p>
+      {/* Technical Specs */}
+      <div className="relative z-10 container mx-auto px-4 py-24 border-t border-white/10">
+        <div className="text-center mb-16">
+          <h2 className="text-4xl font-bold mb-4 text-white">Powered by Cutting-Edge AI</h2>
+          <p className="text-neutral-400 text-lg">Industry-leading models and techniques</p>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          <div className="card text-center">
+            <div className="p-3 gradient-primary rounded-lg w-fit mx-auto mb-4">
+              <Music className="h-8 w-8 text-white" />
+            </div>
+            <h3 className="text-xl font-bold mb-2 text-white">Basic Pitch</h3>
+            <p className="text-neutral-400">Spotify&apos;s polyphonic pitch detection for accurate MIDI extraction</p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6">
-            <div className="card text-center">
-              <div className="inline-flex p-4 bg-accent-purple/10 rounded-lg mb-4">
-                <Music className="h-8 w-8 text-accent-purple" />
-              </div>
-              <h3 className="text-xl font-bold mb-2 text-white">Basic Pitch</h3>
-              <p className="text-neutral-400">Spotify's ML model for precise polyphonic MIDI extraction</p>
+          <div className="card text-center">
+            <div className="p-3 gradient-primary rounded-lg w-fit mx-auto mb-4">
+              <Volume2 className="h-8 w-8 text-white" />
             </div>
+            <h3 className="text-xl font-bold mb-2 text-white">Spleeter</h3>
+            <p className="text-neutral-400">Advanced source separation for multi-track processing</p>
+          </div>
 
-            <div className="card text-center">
-              <div className="inline-flex p-4 bg-accent-blue/10 rounded-lg mb-4">
-                <Volume2 className="h-8 w-8 text-accent-blue" />
-              </div>
-              <h3 className="text-xl font-bold mb-2 text-white">Spleeter</h3>
-              <p className="text-neutral-400">Advanced source separation for multi-track processing</p>
+          <div className="card text-center">
+            <div className="p-3 gradient-secondary rounded-lg w-fit mx-auto mb-4">
+              <Cpu className="h-8 w-8 text-white" />
             </div>
-
-            <div className="card text-center">
-              <div className="inline-flex p-4 bg-accent-green/10 rounded-lg mb-4">
-                <Cpu className="h-8 w-8 text-accent-green" />
-              </div>
-              <h3 className="text-xl font-bold mb-2 text-white">Custom Models</h3>
-              <p className="text-neutral-400">DDSP and diffusion models for neural synthesis</p>
-            </div>
+            <h3 className="text-xl font-bold mb-2 text-white">Custom Neural Models</h3>
+            <p className="text-neutral-400">DDSP and diffusion models for high-quality synthesis</p>
           </div>
         </div>
       </div>
 
       {/* CTA Section */}
       <div className="relative z-10 container mx-auto px-4 py-24">
-        <div className="card max-w-4xl mx-auto text-center gradient-primary">
-          <h2 className="text-4xl font-bold mb-4 text-white">Ready to Transform Audio?</h2>
-          <p className="text-white/80 text-lg mb-8 max-w-2xl mx-auto">
-            Start creating with the world's first truly polyphonic neural audio synthesis platform.
+        <div className="max-w-4xl mx-auto text-center card">
+          <h2 className="text-4xl font-bold mb-4 text-white">Ready to Transform Your Audio?</h2>
+          <p className="text-xl text-neutral-300 mb-8">
+            Join the future of audio synthesis. Start creating polyphonic magic today.
           </p>
           <Link
             href="/studio"
-            className="inline-flex items-center space-x-2 bg-white text-primary-700 hover:bg-neutral-100 px-8 py-4 rounded-lg font-bold text-lg transition-all duration-200 hover:shadow-xl"
+            className="button-primary text-lg px-8 py-4 inline-flex items-center space-x-2 shadow-xl hover:shadow-primary-500/20"
           >
             <span>Launch Studio Now</span>
             <ArrowRight className="h-5 w-5" />
@@ -182,16 +180,14 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="relative z-10 border-t border-white/10 py-12">
         <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row items-center justify-between">
+          <div className="flex flex-col md:flex-row items-center justify-between text-neutral-400">
             <div className="flex items-center space-x-3 mb-4 md:mb-0">
               <div className="p-2 gradient-primary rounded-lg">
                 <Zap className="h-5 w-5 text-white" />
               </div>
-              <span className="text-xl font-bold text-gradient">Waveridai</span>
+              <span className="font-bold text-white">Waveridai</span>
             </div>
-            <p className="text-neutral-500 text-sm">
-              © 2024 Waveridai. Polyphonic Neural Audio Synthesis.
-            </p>
+            <p className="text-sm">© 2024 Waveridai. Polyphonic Neural Audio Synthesis.</p>
           </div>
         </div>
       </footer>

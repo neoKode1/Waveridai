@@ -1,76 +1,73 @@
 'use client'
 
 import React from 'react'
-import { Download, Play, Pause, RotateCcw } from 'lucide-react'
+import { Download, Play, Sparkles } from 'lucide-react'
 import { WaveformDisplay } from '../audio/WaveformDisplay'
 
 interface ResultsSectionProps {
-  resultAudio: File | null
-  onDownload: () => void
+  audioUrl: string | null
+  isProcessing: boolean
 }
 
 export const ResultsSection: React.FC<ResultsSectionProps> = ({
-  resultAudio,
-  onDownload,
+  audioUrl,
+  isProcessing,
 }) => {
-  const [isPlaying, setIsPlaying] = React.useState(false)
-
-  if (!resultAudio) return null
+  const handleDownload = () => {
+    if (audioUrl) {
+      const a = document.createElement('a')
+      a.href = audioUrl
+      a.download = 'synthesized-audio.wav'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+    }
+  }
 
   return (
-    <div className="card border-accent-green/30 bg-accent-green/5">
-      <div className="flex items-start space-x-4 mb-6">
-        <div className="p-3 bg-accent-green/20 rounded-lg">
-          <Play className="h-6 w-6 text-accent-green" />
+    <div className="card">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center space-x-3">
+          <div className="p-2 gradient-primary rounded-lg">
+            <Sparkles className="h-5 w-5 text-white" />
+          </div>
+          <h2 className="text-2xl font-bold text-white">Your Synthesized Audio</h2>
         </div>
-        <div className="flex-1">
-          <h2 className="text-2xl font-bold mb-2 text-white">Your Audio is Ready!</h2>
-          <p className="text-neutral-400">
-            Preview your generated audio below and download when you're ready.
-          </p>
-        </div>
+        
+        {audioUrl && (
+          <button
+            onClick={handleDownload}
+            className="button-secondary flex items-center space-x-2"
+          >
+            <Download className="h-4 w-4" />
+            <span>Download</span>
+          </button>
+        )}
       </div>
 
-      <div className="space-y-4">
-        <WaveformDisplay audioFile={resultAudio} variant="primary" />
-
-        <div className="flex items-center justify-between p-4 bg-neutral-800/50 rounded-lg">
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={() => setIsPlaying(!isPlaying)}
-              className="p-3 gradient-primary rounded-lg hover:scale-110 transition-transform"
-            >
-              {isPlaying ? (
-                <Pause className="h-5 w-5 text-white" />
-              ) : (
-                <Play className="h-5 w-5 text-white" />
-              )}
-            </button>
-            <div>
-              <p className="text-sm font-medium text-white">{resultAudio.name}</p>
-              <p className="text-xs text-neutral-500">
-                {(resultAudio.size / (1024 * 1024)).toFixed(2)} MB
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-3">
-            <button
-              className="flex items-center space-x-2 px-4 py-2 bg-neutral-700 hover:bg-neutral-600 rounded-lg transition-colors text-white"
-            >
-              <RotateCcw className="h-4 w-4" />
-              <span className="text-sm">Regenerate</span>
-            </button>
-            <button
-              onClick={onDownload}
-              className="button-primary flex items-center space-x-2"
-            >
-              <Download className="h-4 w-4" />
-              <span>Download</span>
-            </button>
+      {isProcessing ? (
+        <div className="flex flex-col items-center justify-center py-16 space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500"></div>
+          <p className="text-neutral-400">Processing your audio...</p>
+        </div>
+      ) : audioUrl ? (
+        <div className="space-y-6">
+          <WaveformDisplay audioUrl={audioUrl} />
+          
+          <div className="flex items-center justify-center">
+            <audio controls src={audioUrl} className="w-full max-w-2xl">
+              Your browser does not support the audio element.
+            </audio>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="text-center py-16">
+          <div className="p-4 gradient-primary rounded-full w-fit mx-auto mb-4 opacity-50">
+            <Play className="h-8 w-8 text-white" />
+          </div>
+          <p className="text-neutral-400">Your synthesized audio will appear here</p>
+        </div>
+      )}
     </div>
   )
 }

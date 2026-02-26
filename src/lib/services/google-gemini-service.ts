@@ -1,457 +1,332 @@
-/**
- * Google Gemini AI Service
- * Handles audio analysis and prompt generation using Google's Gemini API
- */
+import { GoogleGenerativeAI } from '@google/generative-ai'
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
-
-export interface GeminiAudioAnalysisRequest {
-  audioFile: File | Blob;
-  prompt?: string;
+interface AudioAnalysisResult {
+  tempo?: number
+  key?: string
+  mood?: string
+  genre?: string
+  instruments?: string[]
+  structure?: string
+  energy?: number
+  danceability?: number
+  valence?: number
 }
 
-export interface GeminiAudioAnalysisResponse {
-  instruments: string[];
-  genre: string;
-  mood: string;
-  tempo: number;
-  key: string;
-  style: string;
-  description: string;
-  suggestedPrompt: string;
-  confidence: number;
+interface MusicGenerationParams {
+  prompt: string
+  duration?: number
+  style?: string
+  referenceAudio?: string
+  temperature?: number
 }
 
-export interface LyriaPromptRequest {
-  sourceAnalysis: GeminiAudioAnalysisResponse;
-  referenceAnalysis: GeminiAudioAnalysisResponse;
-  userPrompt?: string;
-}
-
-export interface LyriaPromptResponse {
-  prompt: string;
-  confidence: number;
-  reasoning: string;
-  suggestedParameters: {
-    duration?: number;
-    temperature?: number;
-    seed?: number;
-  };
+interface GeneratedMusic {
+  audioUrl: string
+  metadata?: {
+    title?: string
+    description?: string
+    tags?: string[]
+  }
 }
 
 export class GoogleGeminiService {
-  private genAI: GoogleGenerativeAI | null = null;
-  private isInitialized = false;
+  private client: GoogleGenerativeAI
+  private model: any
 
-  constructor() {
-    this.initialize();
-  }
-
-  private initialize() {
-    const apiKey = process.env.GOOGLE_AI_API_KEY;
-    if (!apiKey) {
-      console.warn('Google AI API key not found. Gemini service will use mock responses.');
-      return;
-    }
-
-    try {
-      this.genAI = new GoogleGenerativeAI(apiKey);
-      this.isInitialized = true;
-      console.log('✅ Google Gemini AI service initialized successfully');
-    } catch (error) {
-      console.error('❌ Failed to initialize Google Gemini AI service:', error);
-    }
+  constructor(apiKey: string) {
+    this.client = new GoogleGenerativeAI(apiKey)
+    this.model = this.client.getGenerativeModel({ model: 'gemini-pro' })
   }
 
   /**
-   * Analyze audio file using Google Gemini
+   * Analyze audio characteristics using Gemini
    */
-  async analyzeAudio(request: GeminiAudioAnalysisRequest): Promise<GeminiAudioAnalysisResponse> {
-    if (!this.isInitialized || !this.genAI) {
-      console.log('🎵 GoogleGeminiService: Using mock response (API not initialized)');
-      return this.getMockResponse(request);
-    }
-
+  async analyzeAudio(audioBuffer: ArrayBuffer): Promise<AudioAnalysisResult> {
     try {
-      const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
+      // Convert audio buffer to base64
+      const base64Audio = this.arrayBufferToBase64(audioBuffer)
       
-      // Convert audio file to base64
-      const audioBase64 = await this.fileToBase64(request.audioFile);
+      const prompt = `Analyze this audio file and provide a detailed breakdown of its musical characteristics including:
+      - Tempo (BPM)
+      - Musical key
+      - Mood and emotional tone
+      - Genre
+      - Instruments present
+      - Song structure
+      - Energy level (0-1)
+      - Danceability (0-1)
+      - Valence/positivity (0-1)
       
-      const analysisPrompt = request.prompt || `
-        Analyze this audio file and provide detailed musical information. Please identify:
-        1. Instruments present in the audio
-        2. Musical genre/style
-        3. Mood and emotional tone
-        4. Tempo (BPM) if detectable
-        5. Musical key if identifiable
-        6. Overall musical style
-        7. A detailed description of the musical content
-        8. A suggested prompt for AI music generation that captures the essence of this audio
+      Return the analysis as a JSON object.`
 
-        Please respond in JSON format with the following structure:
-        {
-          "instruments": ["list", "of", "instruments"],
-          "genre": "genre name",
-          "mood": "mood description",
-          "tempo": 120,
-          "key": "C major",
-          "style": "style description",
-          "description": "detailed description of the audio",
-          "suggestedPrompt": "prompt for AI music generation",
-          "confidence": 0.9
-        }
-      `;
-
-      const result = await model.generateContent([
-        {
-          text: analysisPrompt
-        },
+      const result = await this.model.generateContent([
         {
           inlineData: {
-            data: audioBase64,
-            mimeType: request.audioFile.type || 'audio/wav'
-          }
-        }
-      ]);
+            mimeType: 'audio/wav',
+            data: base64Audio,
+          },
+        },
+        { text: prompt },
+      ])
 
-      const response = await result.response;
-      const text = response.text();
+      const response = await result.response
+      const text = response.text()
       
-      // Try to parse JSON response
-      try {
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const analysis = JSON.parse(jsonMatch[0]);
-          console.log('🎵 GoogleGeminiService: Audio analysis completed successfully');
-          return analysis;
-        }
-      } catch {
-        console.warn('🎵 GoogleGeminiService: Failed to parse JSON, using text extraction');
-      }
-
-      // Fallback: extract information from text response
-      return this.extractInfoFromText(text, request);
-
+      // Parse JSON response
+      const analysis = JSON.parse(text)
+      return analysis
     } catch (error) {
-      console.error('🎵 GoogleGeminiService: Audio analysis failed:', error);
-      return this.getMockResponse(request);
+      console.error('Error analyzing audio:', error)
+      throw new Error('Failed to analyze audio')
     }
   }
 
   /**
-   * Convert file to base64 for API transmission
+   * Generate music description from audio analysis
    */
-  private async fileToBase64(file: File | Blob): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result as string;
-        // Remove data URL prefix to get just the base64 data
-        const base64 = result.split(',')[1];
-        resolve(base64);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  }
-
-  /**
-   * Extract information from text response when JSON parsing fails
-   */
-  private extractInfoFromText(text: string, _request: GeminiAudioAnalysisRequest): GeminiAudioAnalysisResponse {
-    // Simple text extraction logic
-    const instruments = this.extractList(text, ['instruments', 'instrumentation']);
-    const genre = this.extractValue(text, ['genre', 'style', 'type']) || 'Unknown';
-    const mood = this.extractValue(text, ['mood', 'emotion', 'feeling']) || 'Neutral';
-    const tempo = this.extractNumber(text, ['tempo', 'bpm', 'beats per minute']) || 120;
-    const key = this.extractValue(text, ['key', 'tonality']) || 'Unknown';
-    const style = this.extractValue(text, ['style', 'character']) || genre;
-    const description = this.extractDescription(text);
-    const suggestedPrompt = this.extractPrompt(text);
-
-    return {
-      instruments,
-      genre,
-      mood,
-      tempo,
-      key,
-      style,
-      description,
-      suggestedPrompt,
-      confidence: 0.7 // Lower confidence for text extraction
-    };
-  }
-
-  private extractList(text: string, keywords: string[]): string[] {
-    for (const keyword of keywords) {
-      const regex = new RegExp(`${keyword}[:\\s]*([^\\n]+)`, 'i');
-      const match = text.match(regex);
-      if (match) {
-        const listText = match[1];
-        // Split by common delimiters and clean up
-        return listText.split(/[,;]/)
-          .map(item => item.trim())
-          .filter(item => item.length > 0)
-          .slice(0, 5); // Limit to 5 instruments
-      }
-    }
-    return ['Unknown'];
-  }
-
-  private extractValue(text: string, keywords: string[]): string | null {
-    for (const keyword of keywords) {
-      const regex = new RegExp(`${keyword}[:\\s]*([^\\n,]+)`, 'i');
-      const match = text.match(regex);
-      if (match) {
-        return match[1].trim();
-      }
-    }
-    return null;
-  }
-
-  private extractNumber(text: string, keywords: string[]): number | null {
-    for (const keyword of keywords) {
-      const regex = new RegExp(`${keyword}[:\\s]*(\\d+)`, 'i');
-      const match = text.match(regex);
-      if (match) {
-        return parseInt(match[1], 10);
-      }
-    }
-    return null;
-  }
-
-  private extractDescription(text: string): string {
-    // Look for description or summary
-    const descriptionMatch = text.match(/(?:description|summary)[:\\s]*([^\\n]+)/i);
-    if (descriptionMatch) {
-      return descriptionMatch[1].trim();
-    }
-    
-    // Fallback: take first substantial sentence
-    const sentences = text.split(/[.!?]/).filter(s => s.trim().length > 20);
-    return sentences[0]?.trim() || 'Audio analysis completed';
-  }
-
-  private extractPrompt(text: string): string {
-    const promptMatch = text.match(/(?:prompt|suggestion)[:\\s]*([^\\n]+)/i);
-    if (promptMatch) {
-      return promptMatch[1].trim();
-    }
-    
-    // Generate a basic prompt from extracted info
-    return 'Generate music similar to the analyzed audio with similar characteristics';
-  }
-
-  /**
-   * Get mock response for testing/fallback
-   */
-  private getMockResponse(_request: GeminiAudioAnalysisRequest): GeminiAudioAnalysisResponse {
-    const mockResponses = [
-      {
-        instruments: ['electric guitar', 'bass guitar', 'drums', 'synthesizer'],
-        genre: 'electronic rock',
-        mood: 'energetic',
-        tempo: 128,
-        key: 'G minor',
-        style: 'modern electronic',
-        description: 'An energetic electronic rock track with driving guitar riffs and electronic elements',
-        suggestedPrompt: 'Generate an energetic electronic rock track with electric guitar riffs, bass guitar, drums, and synthesizer elements at 128 BPM in G minor',
-        confidence: 0.8
-      },
-      {
-        instruments: ['piano', 'strings', 'acoustic guitar'],
-        genre: 'ambient',
-        mood: 'calm',
-        tempo: 90,
-        key: 'C major',
-        style: 'cinematic ambient',
-        description: 'A peaceful ambient piece with piano melodies and string arrangements',
-        suggestedPrompt: 'Create a calm ambient track featuring piano, strings, and acoustic guitar at 90 BPM in C major with cinematic qualities',
-        confidence: 0.9
-      },
-      {
-        instruments: ['synthesizer', 'drum machine', 'bass'],
-        genre: 'electronic dance',
-        mood: 'upbeat',
-        tempo: 140,
-        key: 'F minor',
-        style: 'EDM',
-        description: 'An upbeat electronic dance track with synthesizer leads and driving rhythm',
-        suggestedPrompt: 'Generate an upbeat EDM track with synthesizer leads, drum machine, and bass at 140 BPM in F minor',
-        confidence: 0.85
-      }
-    ];
-
-    // Return a random mock response
-    const randomIndex = Math.floor(Math.random() * mockResponses.length);
-    console.log('🎵 GoogleGeminiService: Using mock response', { index: randomIndex });
-    return mockResponses[randomIndex];
-  }
-
-  /**
-   * Generate intelligent Lyria prompt from audio analysis
-   */
-  async generateLyriaPrompt(request: LyriaPromptRequest): Promise<LyriaPromptResponse> {
-    if (!this.isInitialized || !this.genAI) {
-      console.log('🎵 GoogleGeminiService: Using mock Lyria prompt (API not initialized)');
-      return this.getMockLyriaPrompt(request);
-    }
-
+  async generateMusicDescription(analysis: AudioAnalysisResult): Promise<string> {
     try {
-      const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
+      const prompt = `Based on this musical analysis:
+      ${JSON.stringify(analysis, null, 2)}
       
-      const promptText = `
-        You are an expert music producer and AI prompt engineer. I have analyzed two audio files:
+      Generate a natural language description of the music that captures its essence,
+      style, and emotional qualities. Make it engaging and descriptive.`
 
-        SOURCE AUDIO ANALYSIS:
-        - Genre: ${request.sourceAnalysis.genre}
-        - Instruments: ${request.sourceAnalysis.instruments.join(', ')}
-        - Mood: ${request.sourceAnalysis.mood}
-        - Tempo: ${request.sourceAnalysis.tempo} BPM
-        - Key: ${request.sourceAnalysis.key}
-        - Style: ${request.sourceAnalysis.style}
-        - Description: ${request.sourceAnalysis.description || 'No description available'}
-
-        REFERENCE AUDIO ANALYSIS:
-        - Genre: ${request.referenceAnalysis.genre}
-        - Instruments: ${request.referenceAnalysis.instruments.join(', ')}
-        - Mood: ${request.referenceAnalysis.mood}
-        - Tempo: ${request.referenceAnalysis.tempo} BPM
-        - Key: ${request.referenceAnalysis.key}
-        - Style: ${request.referenceAnalysis.style}
-        - Description: ${request.referenceAnalysis.description || 'No description available'}
-
-        ${request.userPrompt ? `USER REQUEST: ${request.userPrompt}` : ''}
-
-        Please generate a detailed prompt for Google's Lyria AI music generation model that will transform the source audio to match the reference audio style. The prompt should:
-
-        1. Preserve the melody and structure of the source audio
-        2. Transform the instrumentation, style, and mood to match the reference
-        3. Maintain musical coherence and quality
-        4. Be specific about tempo, key, and stylistic elements
-        5. Use professional music terminology
-        6. IMPORTANT: Do NOT include any artist names, song titles, or copyrighted material
-        7. Focus on musical characteristics, instruments, and stylistic elements only
-
-        Respond in JSON format with this structure:
-        {
-          "prompt": "detailed prompt for Lyria",
-          "confidence": 0.95,
-          "reasoning": "explanation of the transformation approach",
-          "suggestedParameters": {
-            "duration": 10,
-            "temperature": 0.8,
-            "seed": 42
-          }
-        }
-      `;
-
-      const result = await model.generateContent(promptText);
-      const response = await result.response;
-      const text = response.text();
-      
-      // Try to parse JSON response
-      try {
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const promptData = JSON.parse(jsonMatch[0]);
-          console.log('🎵 GoogleGeminiService: Lyria prompt generated successfully');
-          return promptData;
-        }
-      } catch {
-        console.warn('🎵 GoogleGeminiService: Failed to parse JSON, using text extraction');
-      }
-
-      // Fallback: extract information from text response
-      return this.extractLyriaPromptFromText(text, request);
-
+      const result = await this.model.generateContent(prompt)
+      const response = await result.response
+      return response.text()
     } catch (error) {
-      console.error('🎵 GoogleGeminiService: Lyria prompt generation failed:', error);
-      return this.getMockLyriaPrompt(request);
+      console.error('Error generating description:', error)
+      throw new Error('Failed to generate music description')
     }
   }
 
   /**
-   * Extract Lyria prompt from text response when JSON parsing fails
+   * Generate optimal prompt for music generation
    */
-  private extractLyriaPromptFromText(text: string, request: LyriaPromptRequest): LyriaPromptResponse {
-    // Look for prompt in the text
-    const promptMatch = text.match(/(?:prompt|generate)[:"]*\s*([^"]+)/i);
-    const prompt = promptMatch ? promptMatch[1].trim() : this.generateFallbackPrompt(request);
+  async generateMusicPrompt(
+    userInput: string,
+    referenceAnalysis?: AudioAnalysisResult
+  ): Promise<string> {
+    try {
+      let prompt = `You are a music production expert. Create a detailed, technical prompt for AI music generation based on:
+      
+      User Request: ${userInput}`
 
-    // Look for reasoning
-    const reasoningMatch = text.match(/(?:reasoning|explanation)[:"]*\s*([^"]+)/i);
-    const reasoning = reasoningMatch ? reasoningMatch[1].trim() : 'Generated prompt based on audio analysis';
-
-    return {
-      prompt,
-      confidence: 0.7,
-      reasoning,
-      suggestedParameters: {
-        duration: 10,
-        temperature: 0.8,
-        seed: Math.floor(Math.random() * 1000)
+      if (referenceAnalysis) {
+        prompt += `\n\nReference Audio Analysis:\n${JSON.stringify(referenceAnalysis, null, 2)}`
       }
-    };
+
+      prompt += `\n\nGenerate a comprehensive prompt that includes:
+      - Specific instruments and their roles
+      - Tempo and rhythm details
+      - Harmonic and melodic characteristics
+      - Production style and mixing approach
+      - Mood and atmosphere
+      - Song structure
+      
+      Make it detailed enough for high-quality AI music generation.`
+
+      const result = await this.model.generateContent(prompt)
+      const response = await result.response
+      return response.text()
+    } catch (error) {
+      console.error('Error generating prompt:', error)
+      throw new Error('Failed to generate music prompt')
+    }
   }
 
   /**
-   * Generate fallback prompt when extraction fails
+   * Analyze and improve user's music generation prompt
    */
-  private generateFallbackPrompt(request: LyriaPromptRequest): string {
-    const source = request.sourceAnalysis;
-    const reference = request.referenceAnalysis;
-    
-    return `Create a ${reference.genre} musical piece using ${reference.instruments.join(', ')} at ${reference.tempo} BPM in ${reference.key} with ${reference.mood} mood and ${reference.style} characteristics. Focus on harmonic progression, clear instrument separation, and professional audio quality.`;
+  async improvePrompt(originalPrompt: string): Promise<string> {
+    try {
+      const prompt = `Improve this music generation prompt to be more specific and detailed:
+      
+      Original: ${originalPrompt}
+      
+      Enhanced prompt should include:
+      - Specific instrument choices and their roles
+      - Tempo and time signature
+      - Key and harmonic progression ideas
+      - Production style and effects
+      - Emotional tone and dynamics
+      - Any relevant cultural or stylistic references
+      
+      Return only the improved prompt, without explanation.`
+
+      const result = await this.model.generateContent(prompt)
+      const response = await result.response
+      return response.text()
+    } catch (error) {
+      console.error('Error improving prompt:', error)
+      return originalPrompt // Return original if improvement fails
+    }
   }
 
   /**
-   * Get mock Lyria prompt for testing/fallback
+   * Generate metadata for created music
    */
-  private getMockLyriaPrompt(request: LyriaPromptRequest): LyriaPromptResponse {
-    const source = request.sourceAnalysis;
-    const reference = request.referenceAnalysis;
-    
-    const mockPrompts = [
-      `Create a ${reference.genre} musical piece using ${reference.instruments.join(', ')} at ${reference.tempo} BPM in ${reference.key}. The composition should have a ${reference.mood} mood with ${reference.style} characteristics. Focus on harmonic progression, clear instrument separation, and professional audio quality.`,
-      `Generate a ${reference.genre} arrangement with ${reference.instruments.join(', ')} featuring ${reference.mood} emotional tone at ${reference.tempo} BPM in ${reference.key}. Maintain musical coherence with ${reference.style} production style, dynamic range, and studio-quality sound.`,
-      `Produce a ${reference.genre} track using ${reference.instruments.join(', ')} with ${reference.mood} mood at ${reference.tempo} BPM in ${reference.key}. Include ${reference.style} elements, polyphonic arrangement, and professional audio production with clear instrument separation.`
-    ];
+  async generateMetadata(
+    audioAnalysis: AudioAnalysisResult,
+    userPrompt: string
+  ): Promise<{ title: string; description: string; tags: string[] }> {
+    try {
+      const prompt = `Generate engaging metadata for a music track:
+      
+      Analysis: ${JSON.stringify(audioAnalysis, null, 2)}
+      Creation Prompt: ${userPrompt}
+      
+      Provide:
+      1. A catchy title (max 60 characters)
+      2. An engaging description (max 200 characters)
+      3. 5-10 relevant tags for categorization
+      
+      Return as JSON with keys: title, description, tags (array)`
 
-    const randomPrompt = mockPrompts[Math.floor(Math.random() * mockPrompts.length)];
-    
-    console.log('🎵 GoogleGeminiService: Using mock Lyria prompt');
-    return {
-      prompt: randomPrompt,
-      confidence: 0.8,
-      reasoning: 'Mock prompt generated based on source and reference audio analysis',
-      suggestedParameters: {
-        duration: 10,
-        temperature: 0.8,
-        seed: Math.floor(Math.random() * 1000)
+      const result = await this.model.generateContent(prompt)
+      const response = await result.response
+      const text = response.text()
+      
+      const metadata = JSON.parse(text)
+      return metadata
+    } catch (error) {
+      console.error('Error generating metadata:', error)
+      return {
+        title: 'Untitled Track',
+        description: 'AI-generated music',
+        tags: ['ai-music', 'generated'],
       }
-    };
+    }
   }
 
   /**
-   * Check if the service is properly initialized
+   * Get suggestions for music variations
    */
-  isReady(): boolean {
-    return this.isInitialized;
+  async suggestVariations(
+    originalAnalysis: AudioAnalysisResult,
+    numberOfSuggestions: number = 3
+  ): Promise<string[]> {
+    try {
+      const prompt = `Based on this musical analysis:
+      ${JSON.stringify(originalAnalysis, null, 2)}
+      
+      Suggest ${numberOfSuggestions} creative variations or remixes. Each suggestion should:
+      - Maintain some connection to the original
+      - Explore different genres, moods, or arrangements
+      - Be specific enough for music generation
+      
+      Return as a JSON array of strings.`
+
+      const result = await this.model.generateContent(prompt)
+      const response = await result.response
+      const text = response.text()
+      
+      const suggestions = JSON.parse(text)
+      return suggestions
+    } catch (error) {
+      console.error('Error generating suggestions:', error)
+      return []
+    }
   }
 
   /**
-   * Get service status information
+   * Convert ArrayBuffer to base64
    */
-  getStatus() {
-    return {
-      initialized: this.isInitialized,
-      hasApiKey: !!process.env.GOOGLE_AI_API_KEY,
-      service: 'Google Gemini AI'
-    };
+  private arrayBufferToBase64(buffer: ArrayBuffer): string {
+    const bytes = new Uint8Array(buffer)
+    let binary = ''
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i])
+    }
+    return btoa(binary)
+  }
+
+  /**
+   * Generate a complete music production workflow suggestion
+   */
+  async generateWorkflowSuggestion(
+    userGoal: string,
+    availableTools: string[]
+  ): Promise<{
+    steps: string[]
+    estimatedTime: string
+    difficulty: 'beginner' | 'intermediate' | 'advanced'
+    tips: string[]
+  }> {
+    try {
+      const prompt = `Create a detailed workflow for this music production goal:
+      
+      Goal: ${userGoal}
+      Available Tools: ${availableTools.join(', ')}
+      
+      Provide:
+      1. Step-by-step workflow (array of strings)
+      2. Estimated time to complete
+      3. Difficulty level (beginner/intermediate/advanced)
+      4. Pro tips (array of strings)
+      
+      Return as JSON with keys: steps, estimatedTime, difficulty, tips`
+
+      const result = await this.model.generateContent(prompt)
+      const response = await result.response
+      const text = response.text()
+      
+      const workflow = JSON.parse(text)
+      return workflow
+    } catch (error) {
+      console.error('Error generating workflow:', error)
+      return {
+        steps: ['Upload your audio', 'Process with AI', 'Download result'],
+        estimatedTime: '5-10 minutes',
+        difficulty: 'beginner',
+        tips: ['Start with small audio files', 'Experiment with different settings'],
+      }
+    }
+  }
+
+  /**
+   * Chat interface for music production assistance
+   */
+  async chat(userMessage: string, conversationHistory: Array<{ role: string; content: string }> = []): Promise<string> {
+    try {
+      const systemPrompt = `You are an expert music production assistant specializing in AI-powered audio synthesis.
+      Help users with:
+      - Understanding polyphonic audio synthesis
+      - Choosing the right workflow (Precise Synthesis vs AI Generation)
+      - Optimizing their prompts and parameters
+      - Troubleshooting audio processing issues
+      - Creative suggestions and best practices
+      
+      Be concise, technical when needed, but friendly and encouraging.`
+
+      const fullPrompt = [
+        systemPrompt,
+        ...conversationHistory.map(msg => `${msg.role}: ${msg.content}`),
+        `user: ${userMessage}`,
+        'assistant:'
+      ].join('\n\n')
+
+      const result = await this.model.generateContent(fullPrompt)
+      const response = await result.response
+      return response.text()
+    } catch (error) {
+      console.error('Error in chat:', error)
+      throw new Error('Failed to process chat message')
+    }
   }
 }
 
 // Export singleton instance
-export const googleGeminiService = new GoogleGeminiService();
+let geminiService: GoogleGeminiService | null = null
+
+export function getGeminiService(): GoogleGeminiService {
+  if (!geminiService) {
+    const apiKey = process.env.GOOGLE_AI_API_KEY
+    if (!apiKey) {
+      throw new Error('GOOGLE_AI_API_KEY environment variable is not set')
+    }
+    geminiService = new GoogleGeminiService(apiKey)
+  }
+  return geminiService
+}
