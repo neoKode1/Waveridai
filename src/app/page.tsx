@@ -108,30 +108,34 @@ export default function LandingPage() {
           <div className="max-w-6xl mx-auto">
             <div className="text-center mb-16">
               <h3 className="text-4xl font-bold text-white mb-4">Powered by Advanced AI</h3>
-              <p className="text-xl text-neutral-400">State-of-the-art models for professional audio synthesis</p>
+              <p className="text-xl text-neutral-400">State-of-the-art neural networks for audio synthesis</p>
             </div>
             
             <div className="grid md:grid-cols-2 gap-8">
-              <div className="card">
+              <div className="glass glass-hover p-8 rounded-2xl">
                 <div className="flex items-start space-x-4">
                   <div className="p-3 gradient-primary rounded-lg shadow-lg shadow-primary-500/50">
                     <Music className="h-6 w-6 text-white" />
                   </div>
-                  <div className="flex-1">
-                    <h4 className="text-lg font-bold text-white mb-2">Basic Pitch + Source Separation</h4>
-                    <p className="text-neutral-400">Spotify's Basic Pitch for MIDI extraction combined with Spleeter for multi-track isolation</p>
+                  <div>
+                    <h4 className="text-xl font-bold text-white mb-2">Basic Pitch + Spleeter</h4>
+                    <p className="text-neutral-400">
+                      Multi-track MIDI extraction and source separation for precise polyphonic analysis
+                    </p>
                   </div>
                 </div>
               </div>
               
-              <div className="card">
+              <div className="glass glass-hover p-8 rounded-2xl">
                 <div className="flex items-start space-x-4">
                   <div className="p-3 gradient-secondary rounded-lg shadow-lg shadow-secondary-500/50">
-                    <Brain className="h-6 w-6 text-white" />
+                    <Sparkles className="h-6 w-6 text-white" />
                   </div>
-                  <div className="flex-1">
-                    <h4 className="text-lg font-bold text-white mb-2">Custom Neural Models</h4>
-                    <p className="text-neutral-400">DDSP and Diffusion-based synthesis for high-quality audio generation</p>
+                  <div>
+                    <h4 className="text-xl font-bold text-white mb-2">Custom DDSP/Diffusion Models</h4>
+                    <p className="text-neutral-400">
+                      Neural synthesis with personalized reference audio for unique sound design
+                    </p>
                   </div>
                 </div>
               </div>
@@ -141,37 +145,34 @@ export default function LandingPage() {
 
         {/* CTA Section */}
         <section className="container mx-auto px-4 py-24">
-          <div className="max-w-4xl mx-auto">
-            <div className="card text-center relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-primary opacity-5" />
-              <div className="relative z-10">
-                <h3 className="text-4xl font-bold text-white mb-4">Ready to Transform Your Sound?</h3>
-                <p className="text-xl text-neutral-400 mb-8">Start creating with polyphonic neural audio synthesis today</p>
-                <Link 
-                  href="/studio"
-                  className="button-primary inline-flex items-center space-x-2 shadow-lg shadow-primary-500/30 text-lg px-8 py-4"
-                >
-                  <Zap className="h-5 w-5" />
-                  <span>Launch Studio</span>
-                  <ArrowRight className="h-5 w-5" />
-                </Link>
-              </div>
-            </div>
+          <div className="max-w-4xl mx-auto text-center glass p-12 rounded-3xl shadow-2xl shadow-primary-500/20">
+            <h3 className="text-4xl font-bold text-white mb-4">Ready to Transform Your Audio?</h3>
+            <p className="text-xl text-neutral-400 mb-8">
+              Join the future of polyphonic neural audio synthesis
+            </p>
+            <Link 
+              href="/studio"
+              className="button-primary inline-flex items-center space-x-2 shadow-lg shadow-primary-500/30 text-lg px-8 py-4"
+            >
+              <Zap className="h-5 w-5" />
+              <span>Launch Studio</span>
+              <ArrowRight className="h-5 w-5" />
+            </Link>
           </div>
         </section>
 
         {/* Footer */}
-        <footer className="border-t border-white/10 bg-black/20 backdrop-blur-sm">
-          <div className="container mx-auto px-4 py-8">
-            <div className="flex flex-col md:flex-row items-center justify-between">
-              <div className="flex items-center space-x-3 mb-4 md:mb-0">
+        <footer className="border-t border-white/10 bg-black/20 backdrop-blur-sm py-8">
+          <div className="container mx-auto px-4">
+            <div className="flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0">
+              <div className="flex items-center space-x-3">
                 <div className="p-2 gradient-primary rounded-lg shadow-lg shadow-primary-500/50">
                   <Zap className="h-5 w-5 text-white" />
                 </div>
-                <span className="text-lg font-bold text-gradient">Waveridai</span>
+                <span className="text-white font-bold">Waveridai</span>
               </div>
               
-              <p className="text-sm text-neutral-400">
+              <p className="text-neutral-400 text-sm">
                 © 2024 Waveridai. Polyphonic Neural Audio Synthesis.
               </p>
             </div>

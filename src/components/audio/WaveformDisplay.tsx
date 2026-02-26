@@ -1,283 +1,238 @@
 'use client'
 
-import React, { useRef, useEffect, useState } from 'react'
+import React, { useRef, useEffect, useCallback } from 'react'
 import { Play, Pause, SkipBack, SkipForward } from 'lucide-react'
-// import { MIDINoteEvent } from '@/lib/hooks/useWorkflowState' // Archived for future use
-import { cn } from '@/lib/utils/cn'
-
-// Use the native Web Audio API AudioBuffer
-type AudioBuffer = globalThis.AudioBuffer
 
 interface WaveformDisplayProps {
-  audioBuffer: AudioBuffer
-  annotations?: Array<{startTime: number, endTime: number, note: number}> // MIDINoteEvent[] - archived for future use
-  className?: string
-  height?: number
-  showControls?: boolean
-  onTimeUpdate?: (currentTime: number) => void
+  audioUrl: string
+  isPlaying: boolean
+  onPlayPause: () => void
+  currentTime: number
+  duration: number
+  onSeek: (time: number) => void
 }
 
 export const WaveformDisplay: React.FC<WaveformDisplayProps> = ({
-  audioBuffer,
-  annotations = [],
-  className,
-  height = 120,
-  showControls = true,
-  onTimeUpdate
+  audioUrl,
+  isPlaying,
+  onPlayPause,
+  currentTime,
+  duration,
+  onSeek,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const audioContextRef = useRef<AudioContext | null>(null)
-  const sourceRef = useRef<AudioBufferSourceNode | null>(null)
-  const gainNodeRef = useRef<GainNode | null>(null)
-  
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [currentTime, setCurrentTime] = useState(0)
-  const [duration, setDuration] = useState(0)
-          const [, setIsDragging] = useState(false)
+  const waveformData = useRef<number[]>([])
 
-  useEffect(() => {
-    setDuration(audioBuffer.duration)
-    drawWaveform()
-  }, [audioBuffer])
-
-  useEffect(() => {
-    if (audioContextRef.current && sourceRef.current && gainNodeRef.current) {
-      const updateTime = () => {
-        if (sourceRef.current && audioContextRef.current) {
-          const elapsed = audioContextRef.current.currentTime - (sourceRef.current as AudioBufferSourceNode & { startTime?: number }).startTime!
-          const newTime = Math.max(0, Math.min(elapsed, duration))
-          setCurrentTime(newTime)
-          onTimeUpdate?.(newTime)
-          
-          if (newTime >= duration) {
-            setIsPlaying(false)
-            setCurrentTime(0)
-          }
-        }
-        
-        if (isPlaying) {
-          requestAnimationFrame(updateTime)
-        }
-      }
-      
-      if (isPlaying) {
-        updateTime()
-      }
-    }
-  }, [isPlaying, duration, onTimeUpdate])
-
-  const drawWaveform = () => {
+  // Draw waveform on canvas
+  const drawWaveform = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-
-    // Validate audioBuffer
-    if (!audioBuffer) {
-      console.log('WaveformDisplay: No audioBuffer provided')
-      return
-    }
-
-    // Validate audioBuffer has the required methods
-    if (typeof audioBuffer.getChannelData !== 'function') {
-      console.error('WaveformDisplay: Invalid audioBuffer - missing getChannelData method', {
-        audioBuffer,
-        audioBufferType: typeof audioBuffer,
-        audioBufferConstructor: audioBuffer?.constructor?.name,
-        hasGetChannelData: typeof audioBuffer?.getChannelData
-      })
-      return
-    }
 
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    const { width, height: canvasHeight } = canvas
-    const channelData = audioBuffer.getChannelData(0)
-    const samplesPerPixel = Math.floor(channelData.length / width)
+    const width = canvas.width
+    const height = canvas.height
+    const progress = duration > 0 ? currentTime / duration : 0
 
     // Clear canvas
-    ctx.fillStyle = '#1e293b'
-    ctx.fillRect(0, 0, width, canvasHeight)
+    ctx.clearRect(0, 0, width, height)
 
-    // Draw waveform
-    ctx.strokeStyle = '#8b5cf6'
-    ctx.lineWidth = 1
+    // Draw waveform bars
+    const barWidth = 3
+    const gap = 1
+    const totalBars = Math.floor(width / (barWidth + gap))
+
+    for (let i = 0; i < totalBars; i++) {
+      const x = i * (barWidth + gap)
+      const barHeight = waveformData.current[i] || Math.random() * height * 0.8
+      const y = (height - barHeight) / 2
+
+      // Color based on progress
+      const isPassed = i / totalBars < progress
+      ctx.fillStyle = isPassed ? 'oklch(70.7% 0.022 261.325)' : 'oklch(40% 0 0)'
+      ctx.fillRect(x, y, barWidth, barHeight)
+    }
+
+    // Draw progress indicator
+    const progressX = width * progress
+    ctx.strokeStyle = 'oklch(70.7% 0.022 261.325)'
+    ctx.lineWidth = 2
     ctx.beginPath()
-
-    for (let x = 0; x < width; x++) {
-      const start = x * samplesPerPixel
-      const end = Math.min(start + samplesPerPixel, channelData.length)
-      
-      let sum = 0
-      for (let i = start; i < end; i++) {
-        sum += Math.abs(channelData[i])
-      }
-      const average = sum / (end - start)
-      
-      const y = (1 - average) * canvasHeight / 2
-      ctx.lineTo(x, y)
-    }
-
+    ctx.moveTo(progressX, 0)
+    ctx.lineTo(progressX, height)
     ctx.stroke()
+  }, [currentTime, duration])
 
-    // Draw progress line
-    if (duration > 0) {
-      const progressX = (currentTime / duration) * width
-      ctx.strokeStyle = '#fbbf24'
-      ctx.lineWidth = 2
-      ctx.beginPath()
-      ctx.moveTo(progressX, 0)
-      ctx.lineTo(progressX, canvasHeight)
-      ctx.stroke()
-    }
+  useEffect(() => {
+    drawWaveform()
+  }, [drawWaveform])
 
-    // Draw MIDI annotations
-    if (annotations.length > 0) {
-      annotations.forEach(note => {
-        const startX = (note.startTime / duration) * width
-        const endX = (note.endTime / duration) * width
-        const noteHeight = canvasHeight / 12 // 12 semitones per octave
-        const y = canvasHeight - ((note.note % 12) * noteHeight) - noteHeight
+  // Generate waveform data when audio loads
+  useEffect(() => {
+    if (!audioUrl) return
 
-        ctx.fillStyle = `rgba(139, 92, 246, 0.7)`
-        ctx.fillRect(startX, y, endX - startX, noteHeight)
-      })
-    }
-  }
+    const canvas = canvasRef.current
+    if (!canvas) return
 
-  const handleCanvasClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    const width = canvas.width
+    const barWidth = 3
+    const gap = 1
+    const totalBars = Math.floor(width / (barWidth + gap))
+
+    // Generate synthetic waveform data
+    waveformData.current = Array.from({ length: totalBars }, (_, i) => {
+      const frequency = 0.1
+      const amplitude = Math.sin(i * frequency) * 0.5 + 0.5
+      const randomness = Math.random() * 0.3
+      return (amplitude * 0.7 + randomness * 0.3) * canvas.height * 0.8
+    })
+
+    drawWaveform()
+  }, [audioUrl, drawWaveform])
+
+  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current
     if (!canvas) return
 
     const rect = canvas.getBoundingClientRect()
-    const x = event.clientX - rect.left
-    const newTime = (x / canvas.width) * duration
-    
-    setCurrentTime(newTime)
-    if (isPlaying) {
-      stopAudio()
-      playAudio(newTime)
-    }
+    const x = e.clientX - rect.left
+    const percentage = x / canvas.width
+    const newTime = percentage * duration
+    onSeek(newTime)
   }
 
-  const handleMouseDown = () => setIsDragging(true)
-  const handleMouseUp = () => setIsDragging(false)
-
-  const playAudio = (startTime: number = currentTime) => {
-    if (!audioContextRef.current) {
-      audioContextRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
-    }
-
-    const audioContext = audioContextRef.current
-    const source = audioContext.createBufferSource()
-    const gainNode = audioContext.createGain()
-
-    source.buffer = audioBuffer
-    source.connect(gainNode)
-    gainNode.connect(audioContext.destination)
-
-    source.start(0, startTime)
-    source.stop(audioContext.currentTime + (duration - startTime))
-
-    sourceRef.current = source
-    gainNodeRef.current = gainNode
-    setIsPlaying(true)
-
-    source.onended = () => {
-      setIsPlaying(false)
-      setCurrentTime(0)
-    }
+  const formatTime = (time: number) => {
+    const minutes = Math.floor(time / 60)
+    const seconds = Math.floor(time % 60)
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`
   }
 
-  const stopAudio = () => {
-    if (sourceRef.current) {
-      sourceRef.current.stop()
-      sourceRef.current.disconnect()
-      sourceRef.current = null
-    }
-    setIsPlaying(false)
+  const skip = (seconds: number) => {
+    const newTime = Math.max(0, Math.min(duration, currentTime + seconds))
+    onSeek(newTime)
   }
-
-  const handlePlayPause = () => {
-    if (isPlaying) {
-      stopAudio()
-    } else {
-      playAudio()
-    }
-  }
-
-  const handleSeek = (direction: 'back' | 'forward') => {
-    const seekAmount = 5 // 5 seconds
-    const newTime = direction === 'back' 
-      ? Math.max(0, currentTime - seekAmount)
-      : Math.min(duration, currentTime + seekAmount)
-    
-    setCurrentTime(newTime)
-    if (isPlaying) {
-      stopAudio()
-      playAudio(newTime)
-    }
-  }
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = Math.floor(seconds % 60)
-    return `${mins}:${secs.toString().padStart(2, '0')}`
-  }
-
-  useEffect(() => {
-    drawWaveform()
-  }, [currentTime, annotations])
 
   return (
-    <div className={cn('space-y-4', className)}>
+    <div className="glass p-6 rounded-xl space-y-4">
+      {/* Waveform Canvas */}
       <div className="relative">
         <canvas
           ref={canvasRef}
           width={800}
-          height={height}
-          className="w-full border border-gray-700 rounded-lg cursor-pointer"
+          height={120}
+          className="w-full h-[120px] cursor-pointer rounded-lg"
           onClick={handleCanvasClick}
-          onMouseDown={handleMouseDown}
-          onMouseUp={handleMouseUp}
         />
-        
-        {/* Time markers */}
-        <div className="absolute bottom-0 left-0 right-0 flex justify-between text-xs text-gray-500 px-2">
-          <span>{formatTime(currentTime)}</span>
-          <span>{formatTime(duration)}</span>
-        </div>
       </div>
 
-      {showControls && (
-        <div className="flex items-center justify-center space-x-4">
+      {/* Controls */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
           <button
-            onClick={() => handleSeek('back')}
-            className="p-2 rounded-full hover:bg-gray-700 transition-colors"
-            disabled={isPlaying}
+            onClick={() => skip(-10)}
+            className="p-2 glass glass-hover rounded-lg transition-all"
+            title="Skip back 10s"
           >
-            <SkipBack className="h-5 w-5" />
+            <SkipBack className="h-4 w-4 text-neutral-300" />
           </button>
-          
+
           <button
-            onClick={handlePlayPause}
-            className="p-3 rounded-full bg-purple-600 hover:bg-purple-700 transition-colors"
+            onClick={onPlayPause}
+            className="p-3 gradient-primary rounded-lg shadow-lg shadow-primary-500/50 hover:scale-105 transition-transform"
           >
             {isPlaying ? (
-              <Pause className="h-6 w-6" />
+              <Pause className="h-6 w-6 text-white" />
             ) : (
-              <Play className="h-6 w-6 ml-1" />
+              <Play className="h-6 w-6 text-white" />
             )}
           </button>
-          
+
           <button
-            onClick={() => handleSeek('forward')}
-            className="p-2 rounded-full hover:bg-gray-700 transition-colors"
-            disabled={isPlaying}
+            onClick={() => skip(10)}
+            className="p-2 glass glass-hover rounded-lg transition-all"
+            title="Skip forward 10s"
           >
-            <SkipForward className="h-5 w-5" />
+            <SkipForward className="h-4 w-4 text-neutral-300" />
           </button>
         </div>
-      )}
+
+        <div className="flex items-center space-x-4">
+          <span className="text-sm text-neutral-400">
+            {formatTime(currentTime)}
+          </span>
+          <span className="text-sm text-neutral-600">/</span>
+          <span className="text-sm text-neutral-400">
+            {formatTime(duration)}
+          </span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export const SimpleWaveformDisplay: React.FC<{ audioUrl: string }> = ({ audioUrl }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const waveformData = useRef<number[]>([])
+
+  const drawWaveform = useCallback(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const width = canvas.width
+    const height = canvas.height
+
+    // Clear canvas
+    ctx.clearRect(0, 0, width, height)
+
+    // Draw waveform bars
+    const barWidth = 2
+    const gap = 1
+    const totalBars = Math.floor(width / (barWidth + gap))
+
+    for (let i = 0; i < totalBars; i++) {
+      const x = i * (barWidth + gap)
+      const barHeight = waveformData.current[i] || Math.random() * height * 0.7
+      const y = (height - barHeight) / 2
+
+      ctx.fillStyle = 'oklch(70.7% 0.022 261.325)'
+      ctx.fillRect(x, y, barWidth, barHeight)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!audioUrl) return
+
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const width = canvas.width
+    const barWidth = 2
+    const gap = 1
+    const totalBars = Math.floor(width / (barWidth + gap))
+
+    // Generate synthetic waveform data
+    waveformData.current = Array.from({ length: totalBars }, (_, i) => {
+      const frequency = 0.15
+      const amplitude = Math.sin(i * frequency) * 0.5 + 0.5
+      const randomness = Math.random() * 0.3
+      return (amplitude * 0.7 + randomness * 0.3) * canvas.height * 0.7
+    })
+
+    drawWaveform()
+  }, [audioUrl, drawWaveform])
+
+  return (
+    <div className="glass p-4 rounded-lg">
+      <canvas
+        ref={canvasRef}
+        width={400}
+        height={60}
+        className="w-full h-[60px] rounded"
+      />
     </div>
   )
 }
