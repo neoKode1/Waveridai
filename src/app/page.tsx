@@ -2,7 +2,7 @@
 
 import React from 'react'
 import Link from 'next/link'
-import { Zap, Waveform, Sparkles, ArrowRight, Music, Brain, Layers } from 'lucide-react'
+import { Zap, Waves, Sparkles, ArrowRight, Music, Brain, Layers } from 'lucide-react'
 
 export default function LandingPage() {
   return (
@@ -79,7 +79,7 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-3 gap-6 mt-24 max-w-6xl mx-auto">
             <div className="card group hover:shadow-xl hover:shadow-primary-500/20 transition-all duration-300">
               <div className="p-3 gradient-primary rounded-lg inline-flex mb-4 shadow-lg shadow-primary-500/50 group-hover:scale-110 transition-transform">
-                <Waveform className="h-6 w-6 text-white" />
+                <Waves className="h-6 w-6 text-white" />
               </div>
               <h3 className="text-xl font-bold text-white mb-2">Precise Synthesis</h3>
               <p className="text-neutral-400">MIDI-based polyphonic conversion with custom reference sounds and real-time manipulation</p>
@@ -111,29 +111,29 @@ export default function LandingPage() {
               <p className="text-xl text-neutral-400">State-of-the-art models for professional audio synthesis</p>
             </div>
             
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="glass rounded-xl p-6 text-center hover:bg-white/10 transition-all">
-                <Music className="h-8 w-8 text-primary-400 mx-auto mb-3" />
-                <h4 className="text-white font-semibold mb-2">Basic Pitch</h4>
-                <p className="text-sm text-neutral-400">MIDI extraction</p>
+            <div className="grid md:grid-cols-2 gap-8">
+              <div className="card">
+                <div className="flex items-start space-x-4">
+                  <div className="p-3 gradient-primary rounded-lg shadow-lg shadow-primary-500/50">
+                    <Music className="h-6 w-6 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-lg font-bold text-white mb-2">Basic Pitch + Source Separation</h4>
+                    <p className="text-neutral-400">Spotify's Basic Pitch for MIDI extraction combined with Spleeter for multi-track isolation</p>
+                  </div>
+                </div>
               </div>
               
-              <div className="glass rounded-xl p-6 text-center hover:bg-white/10 transition-all">
-                <Layers className="h-8 w-8 text-secondary-400 mx-auto mb-3" />
-                <h4 className="text-white font-semibold mb-2">Spleeter</h4>
-                <p className="text-sm text-neutral-400">Source separation</p>
-              </div>
-              
-              <div className="glass rounded-xl p-6 text-center hover:bg-white/10 transition-all">
-                <Brain className="h-8 w-8 text-accent-purple mx-auto mb-3" />
-                <h4 className="text-white font-semibold mb-2">DDSP</h4>
-                <p className="text-sm text-neutral-400">Neural synthesis</p>
-              </div>
-              
-              <div className="glass rounded-xl p-6 text-center hover:bg-white/10 transition-all">
-                <Sparkles className="h-8 w-8 text-accent-blue mx-auto mb-3" />
-                <h4 className="text-white font-semibold mb-2">Google Lyria 2</h4>
-                <p className="text-sm text-neutral-400">AI generation</p>
+              <div className="card">
+                <div className="flex items-start space-x-4">
+                  <div className="p-3 gradient-secondary rounded-lg shadow-lg shadow-secondary-500/50">
+                    <Brain className="h-6 w-6 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-lg font-bold text-white mb-2">Custom Neural Models</h4>
+                    <p className="text-neutral-400">DDSP and Diffusion-based synthesis for high-quality audio generation</p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -141,12 +141,12 @@ export default function LandingPage() {
 
         {/* CTA Section */}
         <section className="container mx-auto px-4 py-24">
-          <div className="max-w-4xl mx-auto text-center">
-            <div className="glass rounded-2xl p-12 relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-primary opacity-10" />
+          <div className="max-w-4xl mx-auto">
+            <div className="card text-center relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-primary opacity-5" />
               <div className="relative z-10">
                 <h3 className="text-4xl font-bold text-white mb-4">Ready to Transform Your Sound?</h3>
-                <p className="text-xl text-neutral-300 mb-8">Start creating with polyphonic neural audio synthesis today</p>
+                <p className="text-xl text-neutral-400 mb-8">Start creating with polyphonic neural audio synthesis today</p>
                 <Link 
                   href="/studio"
                   className="button-primary inline-flex items-center space-x-2 shadow-lg shadow-primary-500/30 text-lg px-8 py-4"
