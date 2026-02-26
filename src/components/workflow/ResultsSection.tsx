@@ -1,210 +1,75 @@
 'use client'
 
 import React from 'react'
-import { CheckCircle, Download, Share, RotateCcw } from 'lucide-react'
-import { WaveformDisplay } from '@/components/audio/WaveformDisplay'
-import { useWorkflowState } from '@/lib/hooks/useWorkflowState'
-import { cn } from '@/lib/utils/cn'
+import { Download, CheckCircle } from 'lucide-react'
 
-export const ResultsSection: React.FC = () => {
-  const { 
-    generatedAudio, 
-    sourceAudio,
-    referenceAudio,
-    currentStep, 
-    progress,
-    resetWorkflow 
-  } = useWorkflowState()
+interface ResultsSectionProps {
+  resultAudio: string | null
+  onDownload: () => void
+}
 
-  const isActive = currentStep === 'results'
-  const isComplete = progress.results === 100
-
-  // Log when ResultsSection is rendered
-  console.log('🎵 ResultsSection: Rendering results', {
-    hasGeneratedAudio: !!generatedAudio,
-    hasSourceAudio: !!sourceAudio,
-    hasReferenceAudio: !!referenceAudio,
-    currentStep,
-    audioBufferType: generatedAudio ? typeof generatedAudio : 'null'
-  })
-
-  if (!generatedAudio) {
-    return (
-      <div className={cn(
-        'bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-6 transition-all duration-300',
-        'opacity-50 pointer-events-none'
-      )}>
-        <div className="flex items-center space-x-3 mb-6">
-          <div className="p-2 rounded-lg bg-gray-600">
-            <CheckCircle className="h-5 w-5 text-white" />
-          </div>
-          <div>
-            <h2 className="text-xl font-semibold text-white">Results</h2>
-            <p className="text-gray-400 text-sm">
-              Your transformed audio will appear here
-            </p>
-          </div>
-        </div>
-        <p className="text-gray-500 text-center py-8">
-          Generate audio to see results
-        </p>
-      </div>
-    )
-  }
-
-  const handleDownload = () => {
-    if (!generatedAudio) return
-
-    // Convert AudioBuffer to downloadable file
-    const audioBlob = new Blob([new ArrayBuffer(generatedAudio.length * 4)], { type: 'audio/wav' })
-    const url = URL.createObjectURL(audioBlob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `waveridai-transformed-${Date.now()}.wav`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-  }
-
-  const handleShare = async () => {
-    if (!generatedAudio) return
-
-    if (navigator.share) {
-      try {
-        const audioBlob = new Blob([new ArrayBuffer(generatedAudio.length * 4)], { type: 'audio/wav' })
-        const file = new File([audioBlob], 'waveridai-transformed.wav', { type: 'audio/wav' })
-        await navigator.share({
-          title: 'Waveridai Transformed Audio',
-          text: 'Check out this AI-transformed audio created with Waveridai!',
-          files: [file]
-        })
-      } catch (error) {
-        console.log('Share cancelled or failed:', error)
-      }
-    } else {
-      // Fallback: copy link to clipboard
-      navigator.clipboard.writeText(window.location.href)
-      alert('Link copied to clipboard!')
-    }
-  }
-
+export const ResultsSection: React.FC<ResultsSectionProps> = ({
+  resultAudio,
+  onDownload,
+}) => {
   return (
-    <div className={cn(
-      'bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-6 transition-all duration-300',
-      isActive && 'ring-2 ring-green-500/50 shadow-lg shadow-green-500/20',
-      isComplete && 'bg-green-500/10 border-green-500/30'
-    )}>
-      <div className="flex items-center space-x-3 mb-6">
-        <div className="p-2 rounded-lg bg-green-500">
+    <div className="space-y-4">
+      <div className="flex items-center space-x-3">
+        <div className="p-2 bg-accent-green rounded-lg shadow-lg shadow-accent-green/50">
           <CheckCircle className="h-5 w-5 text-white" />
         </div>
         <div>
-          <h2 className="text-xl font-semibold text-white">Transformation Complete!</h2>
-          <p className="text-gray-400 text-sm">
-            Your audio has been successfully transformed
-          </p>
+          <h3 className="text-lg font-semibold text-white">Generation Complete!</h3>
+          <p className="text-sm text-neutral-400">Your audio has been successfully synthesized</p>
         </div>
       </div>
 
-      {/* Generated Audio Preview */}
-      <div className="mb-6">
-        <h3 className="text-lg font-medium text-white mb-4">Transformed Audio</h3>
-        <WaveformDisplay 
-          audioBuffer={generatedAudio} 
-          showControls={true}
-          height={150}
-        />
-        
-        {/* Audio Info */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 p-4 bg-black/20 rounded-lg">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-green-400">
-              {generatedAudio.duration.toFixed(1)}s
+      <div className="glass rounded-lg p-6 border border-white/10">
+        {/* Audio Player Placeholder */}
+        <div className="bg-neutral-900/50 rounded-lg p-8 mb-4 border border-white/5">
+          <div className="flex items-center justify-center space-x-4">
+            <div className="h-12 w-12 rounded-full bg-gradient-primary flex items-center justify-center shadow-lg shadow-primary-500/50">
+              <svg className="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z" />
+              </svg>
             </div>
-            <div className="text-sm text-gray-400">Duration</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-green-400">
-              {generatedAudio.sampleRate.toLocaleString()} Hz
-            </div>
-            <div className="text-sm text-gray-400">Sample Rate</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-green-400">
-              {generatedAudio.numberOfChannels}
-            </div>
-            <div className="text-sm text-gray-400">Channels</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Comparison Section */}
-      <div className="mb-6">
-        <h3 className="text-lg font-medium text-white mb-4">Audio Comparison</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {sourceAudio && (
-            <div className="bg-black/20 rounded-lg p-4">
-              <h4 className="text-sm font-medium text-white mb-2">Original Source</h4>
-              <WaveformDisplay 
-                audioBuffer={sourceAudio} 
-                showControls={true}
-                height={100}
-              />
-              <div className="text-xs text-gray-400 mt-2">
-                Duration: {sourceAudio.duration.toFixed(1)}s
+            <div className="flex-1">
+              <div className="h-2 bg-neutral-800 rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-primary" style={{ width: '30%' }} />
               </div>
             </div>
-          )}
-          
-          {referenceAudio && (
-            <div className="bg-black/20 rounded-lg p-4">
-              <h4 className="text-sm font-medium text-white mb-2">Reference Style</h4>
-              <WaveformDisplay 
-                audioBuffer={referenceAudio} 
-                showControls={true}
-                height={100}
-              />
-              <div className="text-xs text-gray-400 mt-2">
-                Duration: {referenceAudio.duration.toFixed(1)}s
-              </div>
-            </div>
-          )}
+            <span className="text-sm text-neutral-400">0:45 / 2:30</span>
+          </div>
         </div>
-      </div>
 
-      {/* Action Buttons */}
-      <div className="flex flex-col sm:flex-row gap-4">
         <button
-          onClick={handleDownload}
-          className="flex items-center justify-center space-x-2 px-6 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors font-medium"
+          onClick={onDownload}
+          className="
+            button-primary w-full flex items-center justify-center space-x-2
+            shadow-lg shadow-primary-500/30
+            hover:shadow-xl hover:shadow-primary-500/40
+          "
         >
           <Download className="h-5 w-5" />
-          <span>Download Audio</span>
-        </button>
-        
-        <button
-          onClick={handleShare}
-          className="flex items-center justify-center space-x-2 px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors font-medium"
-        >
-          <Share className="h-5 w-5" />
-          <span>Share</span>
-        </button>
-        
-        <button
-          onClick={resetWorkflow}
-          className="flex items-center justify-center space-x-2 px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors font-medium"
-        >
-          <RotateCcw className="h-5 w-5" />
-          <span>Start Over</span>
+          <span>Download Result</span>
         </button>
       </div>
 
-      {/* Success Message */}
-      <div className="mt-6 p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
-        <p className="text-green-400 text-sm">
-          🎉 Success! Your audio has been transformed using AI. The source audio has been analyzed and converted to match the style and characteristics of your reference audio.
-        </p>
+      <div className="glass rounded-lg p-4 border border-white/10">
+        <div className="grid grid-cols-3 gap-4 text-center">
+          <div>
+            <p className="text-2xl font-bold text-gradient">48kHz</p>
+            <p className="text-xs text-neutral-400">Sample Rate</p>
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-gradient">Stereo</p>
+            <p className="text-xs text-neutral-400">Channels</p>
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-gradient">2:30</p>
+            <p className="text-xs text-neutral-400">Duration</p>
+          </div>
+        </div>
       </div>
     </div>
   )

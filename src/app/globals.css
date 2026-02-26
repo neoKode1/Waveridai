@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  /* Dark theme using OKLCH colors */
+  /* Dark theme using OKLCH colors with holographic accents */
   --background: oklch(15% 0 0);
   --foreground: oklch(90% 0 0);
   --background-secondary: oklch(20% 0 0);
@@ -34,6 +34,23 @@
   body {
     @apply bg-neutral-950 text-neutral-100;
     font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  
+  /* Custom scrollbar for holographic theme */
+  ::-webkit-scrollbar {
+    width: 10px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-neutral-900;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-primary-600 rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-primary-500;
   }
 }
 
@@ -89,6 +106,35 @@
   .input {
     @apply bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2
            text-neutral-100 placeholder:text-neutral-500
-           focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+           focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent
+           transition-all duration-200;
+  }
+  
+  /* Holographic effect utilities */
+  .holographic-border {
+    @apply relative;
+  }
+  
+  .holographic-border::before {
+    content: '';
+    @apply absolute inset-0 rounded-lg opacity-0 transition-opacity duration-300;
+    background: linear-gradient(
+      45deg,
+      oklch(70% 0.15 300),
+      oklch(70% 0.15 240),
+      oklch(70% 0.15 180),
+      oklch(70% 0.15 120)
+    );
+    background-size: 300% 300%;
+    animation: holographic-shift 3s ease infinite;
+  }
+  
+  .holographic-border:hover::before {
+    @apply opacity-20;
+  }
+  
+  @keyframes holographic-shift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
   }
 }
