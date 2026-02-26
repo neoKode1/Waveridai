@@ -1,139 +1,88 @@
 'use client'
 
 import React from 'react'
-import { Check, Clock } from 'lucide-react'
-import { WorkflowStep } from '@/lib/hooks/useWorkflowState'
+import { Check } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 
 interface WorkflowProgressProps {
-  currentStep: WorkflowStep
-  progress: Record<WorkflowStep, number>
+  currentStep: number
+  workflowMode: 'precise' | 'ai'
 }
-
-const WORKFLOW_STEPS: Array<{
-  id: WorkflowStep
-  title: string
-  description: string
-}> = [
-  {
-    id: 'upload_reference',
-    title: 'Reference Melody',
-    description: 'Upload the melody you want to transform'
-  },
-  {
-    id: 'upload_desired',
-    title: 'Desired Sound',
-    description: 'Upload the sound you want it to become'
-  },
-  {
-    id: 'generate',
-    title: 'Transform',
-    description: 'AI transforms your melody'
-  },
-  {
-    id: 'results',
-    title: 'Results',
-    description: 'Download your transformed melody'
-  }
-]
 
 export const WorkflowProgress: React.FC<WorkflowProgressProps> = ({
   currentStep,
-  progress
+  workflowMode,
 }) => {
-  const currentStepIndex = WORKFLOW_STEPS.findIndex(step => step.id === currentStep)
+  const preciseSteps = [
+    { id: 1, name: 'Upload Source', description: 'Audio input' },
+    { id: 2, name: 'Upload Reference', description: 'Custom instrument' },
+    { id: 3, name: 'Generate', description: 'Neural synthesis' },
+    { id: 4, name: 'Results', description: 'Preview & download' },
+  ]
+
+  const aiSteps = [
+    { id: 1, name: 'Upload Source', description: 'Style reference (optional)' },
+    { id: 2, name: 'Describe Music', description: 'Natural language prompt' },
+    { id: 3, name: 'Generate', description: 'AI creation' },
+    { id: 4, name: 'Results', description: 'Preview & download' },
+  ]
+
+  const steps = workflowMode === 'precise' ? preciseSteps : aiSteps
 
   return (
-    <div className="w-full max-w-6xl mx-auto mb-8">
+    <div className="card">
       <div className="flex items-center justify-between">
-        {WORKFLOW_STEPS.map((step, index) => {
-          const isActive = step.id === currentStep
-          const isComplete = progress[step.id] === 100
-          const isUpcoming = index > currentStepIndex
-
-          return (
-            <div key={step.id} className="flex flex-col items-center space-y-2 flex-1">
-              {/* Step Circle */}
-              <div className="relative">
-                <div
+        {steps.map((step, index) => (
+          <React.Fragment key={step.id}>
+            <div className="flex flex-col items-center flex-1">
+              <div
+                className={cn(
+                  'w-12 h-12 rounded-full flex items-center justify-center mb-2 transition-all duration-300',
+                  currentStep > step.id
+                    ? workflowMode === 'precise'
+                      ? 'gradient-primary text-white shadow-lg shadow-primary-500/30'
+                      : 'gradient-secondary text-white shadow-lg shadow-secondary-500/30'
+                    : currentStep === step.id
+                    ? workflowMode === 'precise'
+                      ? 'border-2 border-primary-500 text-primary-400 bg-primary-500/10'
+                      : 'border-2 border-secondary-500 text-secondary-400 bg-secondary-500/10'
+                    : 'border-2 border-neutral-700 text-neutral-500 bg-neutral-800/50'
+                )}
+              >
+                {currentStep > step.id ? (
+                  <Check className="h-6 w-6" />
+                ) : (
+                  <span className="text-sm font-bold">{step.id}</span>
+                )}
+              </div>
+              <div className="text-center">
+                <p
                   className={cn(
-                    'w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-300',
-                    isComplete && 'bg-success border-success',
-                    isActive && !isComplete && 'bg-primary-500 border-primary-500',
-                    isUpcoming && 'bg-neutral-700 border-neutral-600'
+                    'text-sm font-medium transition-colors',
+                    currentStep >= step.id ? 'text-white' : 'text-neutral-500'
                   )}
                 >
-                  {isComplete ? (
-                    <Check className="h-6 w-6 text-white" />
-                  ) : isActive ? (
-                    <div className="w-6 h-6 rounded-full bg-white animate-pulse" />
-                  ) : (
-                    <Clock className="h-6 w-6 text-gray-400" />
-                  )}
-                </div>
-
-                {/* Progress Ring */}
-                {isActive && !isComplete && (
-                  <svg className="absolute inset-0 w-12 h-12 transform -rotate-90" viewBox="0 0 48 48">
-                    <circle
-                      cx="24"
-                      cy="24"
-                      r="20"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      fill="none"
-                      className="text-gray-700"
-                    />
-                    <circle
-                      cx="24"
-                      cy="24"
-                      r="20"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      fill="none"
-                      strokeDasharray={`${2 * Math.PI * 20}`}
-                      strokeDashoffset={`${2 * Math.PI * 20 * (1 - progress[step.id] / 100)}`}
-                      className="text-primary-500 transition-all duration-300"
-                    />
-                  </svg>
-                )}
-              </div>
-
-              {/* Step Info */}
-              <div className="text-center">
-                <h3 className={cn(
-                  'text-sm font-medium',
-                  isActive && 'text-primary-400',
-                  isComplete && 'text-success',
-                  isUpcoming && 'text-neutral-500'
-                )}>
-                  {step.title}
-                </h3>
-                <p className="text-xs text-neutral-500 mt-1">
-                  {step.description}
+                  {step.name}
                 </p>
-                {isActive && progress[step.id] > 0 && progress[step.id] < 100 && (
-                  <p className="text-xs text-primary-400 mt-1">
-                    {Math.round(progress[step.id])}%
-                  </p>
-                )}
+                <p className="text-xs text-neutral-500 mt-1">{step.description}</p>
               </div>
-
-              {/* Connector Line */}
-              {index < WORKFLOW_STEPS.length - 1 && (
-                <div className="absolute left-1/2 top-6 w-full h-0.5 bg-neutral-700 -z-10">
-                  <div
-                    className={cn(
-                      'h-full bg-gradient-to-r transition-all duration-300',
-                      index < currentStepIndex ? 'from-success to-success' : 'from-neutral-700 to-neutral-700'
-                    )}
-                    style={{ width: index < currentStepIndex ? '100%' : '0%' }}
-                  />
-                </div>
-              )}
             </div>
-          )
-        })}
+            {index < steps.length - 1 && (
+              <div className="flex-1 h-0.5 mx-4 mb-8">
+                <div
+                  className={cn(
+                    'h-full transition-all duration-300',
+                    currentStep > step.id
+                      ? workflowMode === 'precise'
+                        ? 'bg-gradient-to-r from-primary-500 to-primary-600'
+                        : 'bg-gradient-to-r from-secondary-500 to-secondary-600'
+                      : 'bg-neutral-700'
+                  )}
+                ></div>
+              </div>
+            )}
+          </React.Fragment>
+        ))}
       </div>
     </div>
   )

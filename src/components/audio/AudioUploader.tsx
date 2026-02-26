@@ -1,144 +1,165 @@
 'use client'
 
-import React, { useCallback, useState } from 'react'
-import { useDropzone } from 'react-dropzone'
-import { Upload, FileAudio, AlertCircle, CheckCircle } from 'lucide-react'
-import { AudioUtils } from '@/lib/utils/audio'
+import React, { useCallback } from 'react'
+import { Upload, FileAudio, X } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 
-// Use the native Web Audio API AudioBuffer
-type AudioBuffer = globalThis.AudioBuffer
-
 interface AudioUploaderProps {
-  onUpload: (file: File, audioBuffer: AudioBuffer) => void
-  accept: string[]
-  maxSize: number
-  title: string
-  description: string
-  className?: string
+  onUpload: (file: File) => void
+  currentFile?: File | null
+  label?: string
+  description?: string
+  accept?: string
+  maxSize?: number // in MB
+  variant?: 'primary' | 'secondary'
 }
 
 export const AudioUploader: React.FC<AudioUploaderProps> = ({
   onUpload,
-  accept,
-  maxSize,
-  title,
-  description,
-  className
+  currentFile,
+  label = 'Upload Audio',
+  description = 'Drag and drop or click to browse',
+  accept = 'audio/*',
+  maxSize = 50,
+  variant = 'primary',
 }) => {
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null)
+  const [isDragging, setIsDragging] = React.useState(false)
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
 
-  const handleDrop = useCallback(async (acceptedFiles: File[]) => {
-    const file = acceptedFiles[0]
-    if (!file) return
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(true)
+  }, [])
 
-    setError(null)
-    setIsProcessing(true)
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+  }, [])
 
-    try {
-      // Validate file
-      const validation = AudioUtils.validateAudioFile(file)
-      if (!validation.valid) {
-        setError(validation.error || 'Invalid file')
-        return
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
+      setIsDragging(false)
+
+      const files = Array.from(e.dataTransfer.files)
+      const audioFile = files.find((file) => file.type.startsWith('audio/'))
+
+      if (audioFile) {
+        if (audioFile.size <= maxSize * 1024 * 1024) {
+          onUpload(audioFile)
+        } else {
+          alert(`File size must be less than ${maxSize}MB`)
+        }
       }
+    },
+    [onUpload, maxSize]
+  )
 
-      // Convert to AudioBuffer
-      const audioBuffer = await AudioUtils.fileToAudioBuffer(file)
-      
-      // Analyze audio (currently unused)
-      // const analysis = await AudioUtils.analyzeAudio(audioBuffer)
-      
-      setUploadedFile(file)
-      onUpload(file, audioBuffer)
-      
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to process audio file')
-    } finally {
-      setIsProcessing(false)
+  const handleFileSelect = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = e.target.files
+      if (files && files[0]) {
+        if (files[0].size <= maxSize * 1024 * 1024) {
+          onUpload(files[0])
+        } else {
+          alert(`File size must be less than ${maxSize}MB`)
+        }
+      }
+    },
+    [onUpload, maxSize]
+  )
+
+  const handleRemoveFile = useCallback(() => {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
     }
-  }, [onUpload])
-
-  const { getRootProps, getInputProps, isDragActive, isDragReject } = useDropzone({
-    onDrop: handleDrop,
-    accept: accept.reduce((acc, type) => ({ ...acc, [type]: [] }), {}),
-    maxSize,
-    multiple: false,
-    disabled: isProcessing
-  })
-
-  const formatAcceptTypes = (types: string[]) => {
-    return types.map(type => type.split('/')[1].toUpperCase()).join(', ')
-  }
+    // Dispatch remove event if needed
+  }, [])
 
   return (
-    <div className={cn('w-full', className)}>
+    <div className="space-y-3">
       <div
-        {...getRootProps()}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        onClick={() => fileInputRef.current?.click()}
         className={cn(
-          'relative border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 cursor-pointer',
-          'hover:border-purple-400 hover:bg-purple-50/10',
-          isDragActive && !isDragReject && 'border-purple-400 bg-purple-50/20',
-          isDragReject && 'border-red-400 bg-red-50/20',
-          uploadedFile && 'border-green-400 bg-green-50/20',
-          isProcessing && 'pointer-events-none opacity-50'
+          'relative border-2 border-dashed rounded-xl p-8 transition-all duration-300 cursor-pointer group',
+          isDragging
+            ? variant === 'primary'
+              ? 'border-primary-500 bg-primary-500/10'
+              : 'border-secondary-500 bg-secondary-500/10'
+            : currentFile
+            ? 'border-neutral-600 bg-neutral-800/50'
+            : 'border-neutral-700 hover:border-neutral-600 bg-neutral-800/30 hover:bg-neutral-800/50'
         )}
       >
-        <input {...getInputProps()} />
-        
-        <div className="flex flex-col items-center space-y-4">
-          {isProcessing ? (
-            <>
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
-              <p className="text-gray-400">Processing audio...</p>
-            </>
-          ) : uploadedFile ? (
-            <>
-              <CheckCircle className="h-12 w-12 text-green-500" />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={accept}
+          onChange={handleFileSelect}
+          className="hidden"
+        />
+
+        {!currentFile ? (
+          <div className="flex flex-col items-center justify-center text-center">
+            <div
+              className={cn(
+                'p-4 rounded-full mb-4 transition-all duration-300',
+                variant === 'primary'
+                  ? 'bg-primary-500/10 group-hover:bg-primary-500/20'
+                  : 'bg-secondary-500/10 group-hover:bg-secondary-500/20'
+              )}
+            >
+              <Upload
+                className={cn(
+                  'h-8 w-8 transition-colors',
+                  variant === 'primary'
+                    ? 'text-primary-400 group-hover:text-primary-300'
+                    : 'text-secondary-400 group-hover:text-secondary-300'
+                )}
+              />
+            </div>
+            <h3 className="text-lg font-semibold mb-1 text-white">{label}</h3>
+            <p className="text-sm text-neutral-400 mb-2">{description}</p>
+            <p className="text-xs text-neutral-500">Max file size: {maxSize}MB</p>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div
+                className={cn(
+                  'p-3 rounded-lg',
+                  variant === 'primary' ? 'bg-primary-500/10' : 'bg-secondary-500/10'
+                )}
+              >
+                <FileAudio
+                  className={cn(
+                    'h-5 w-5',
+                    variant === 'primary' ? 'text-primary-400' : 'text-secondary-400'
+                  )}
+                />
+              </div>
               <div>
-                <p className="text-lg font-medium text-green-600">{uploadedFile.name}</p>
-                <p className="text-sm text-gray-500">
-                  {AudioUtils.formatFileSize(uploadedFile.size)} • {AudioUtils.formatDuration(0)}
+                <p className="text-sm font-medium text-white">{currentFile.name}</p>
+                <p className="text-xs text-neutral-500">
+                  {(currentFile.size / (1024 * 1024)).toFixed(2)} MB
                 </p>
               </div>
-            </>
-          ) : (
-            <>
-              {isDragActive ? (
-                <Upload className="h-12 w-12 text-purple-500" />
-              ) : (
-                <FileAudio className="h-12 w-12 text-gray-400" />
-              )}
-              
-              <div>
-                <h3 className="text-lg font-medium text-white mb-2">{title}</h3>
-                <p className="text-gray-400 mb-4">{description}</p>
-                
-                <div className="text-sm text-gray-500 space-y-1">
-                  <p>Supported formats: {formatAcceptTypes(accept)}</p>
-                  <p>Max file size: {AudioUtils.formatFileSize(maxSize)}</p>
-                </div>
-                
-                <button
-                  type="button"
-                  className="mt-4 px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
-                >
-                  Choose File
-                </button>
-              </div>
-            </>
-          )}
-        </div>
+            </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                handleRemoveFile()
+              }}
+              className="p-2 hover:bg-neutral-700 rounded-lg transition-colors"
+            >
+              <X className="h-5 w-5 text-neutral-400 hover:text-white" />
+            </button>
+          </div>
+        )}
       </div>
-
-      {error && (
-        <div className="mt-4 flex items-center space-x-2 text-red-400">
-          <AlertCircle className="h-4 w-4" />
-          <span className="text-sm">{error}</span>
-        </div>
-      )}
     </div>
   )
 }

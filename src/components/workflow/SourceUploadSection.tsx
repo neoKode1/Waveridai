@@ -1,74 +1,52 @@
 'use client'
 
 import React from 'react'
-import { Upload } from 'lucide-react'
-import { AudioUploader } from '@/components/audio/AudioUploader'
-import { WaveformDisplay } from '@/components/audio/WaveformDisplay'
-import { useWorkflowState } from '@/lib/hooks/useWorkflowState'
-import { cn } from '@/lib/utils/cn'
-import { logToTerminal } from '@/lib/utils/terminal-logger'
+import { AudioUploader } from '../audio/AudioUploader'
+import { WaveformDisplay } from '../audio/WaveformDisplay'
+import { Music } from 'lucide-react'
 
-export const SourceUploadSection: React.FC = () => {
-  const { 
-    sourceAudio, 
-    setSourceAudio, 
-    currentStep, 
-    progress
-  } = useWorkflowState()
+interface SourceUploadSectionProps {
+  sourceAudio: File | null
+  onUpload: (file: File) => void
+  workflowMode: 'precise' | 'ai'
+}
 
-  const isActive = currentStep === 'upload_reference'
-  const isComplete = progress.upload_reference === 100
-
-  const handleUpload = (file: File, audioBuffer: AudioBuffer) => {
-    const logData = {
-      fileName: file.name,
-      fileSize: file.size,
-      duration: audioBuffer.duration,
-      sampleRate: audioBuffer.sampleRate,
-      channels: audioBuffer.numberOfChannels,
-      audioBufferType: typeof audioBuffer,
-      hasGetChannelData: typeof audioBuffer.getChannelData
-    }
-    
-    console.log('🎵 SourceUploadSection: Source audio uploaded successfully', logData)
-    logToTerminal('SourceUploadSection', 'Source audio uploaded successfully', logData)
-    
-    setSourceAudio(audioBuffer)
-    
-    console.log('🎵 SourceUploadSection: Moving to reference upload step')
-    logToTerminal('SourceUploadSection', 'Moving to reference upload step')
-  }
-
+export const SourceUploadSection: React.FC<SourceUploadSectionProps> = ({
+  sourceAudio,
+  onUpload,
+  workflowMode,
+}) => {
   return (
-    <div className={cn(
-      'bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-6 transition-all duration-300',
-      isActive && 'ring-2 ring-primary-500/50 shadow-lg shadow-primary-500/20',
-      isComplete && 'bg-success/10 border-success/30'
-    )}>
-      <div className="flex items-center space-x-3 mb-6">
-        <div className="p-2 bg-primary-500 rounded-lg">
-          <Upload className="h-5 w-5 text-white" />
+    <div className="card">
+      <div className="flex items-start space-x-4 mb-6">
+        <div className={`p-3 rounded-lg ${
+          workflowMode === 'precise' ? 'gradient-primary' : 'gradient-secondary'
+        }`}>
+          <Music className="h-6 w-6 text-white" />
         </div>
-        <div>
-                  <h2 className="text-xl font-semibold text-white">Make this sound like this</h2>
-                  <p className="text-neutral-400 text-sm">
-                    Upload the reference audio that you want to transform.
-                  </p>
+        <div className="flex-1">
+          <h2 className="text-2xl font-bold mb-2 text-white">
+            {workflowMode === 'precise' ? 'Upload Source Audio' : 'Upload Reference Audio (Optional)'}
+          </h2>
+          <p className="text-neutral-400">
+            {workflowMode === 'precise'
+              ? 'Upload the audio you want to transform. We\'ll extract the musical structure and apply it to your reference instrument.'
+              : 'Upload audio to use as a style reference for AI generation, or skip to describe music directly.'}
+          </p>
         </div>
       </div>
 
       <AudioUploader
-        onUpload={handleUpload}
-        accept={['audio/wav', 'audio/mp3', 'audio/flac']}
-        maxSize={20 * 1024 * 1024} // 20 MB
-                title="Drag & drop your reference audio here, or click to select"
-                description="This is the audio you want to transform"
+        onUpload={onUpload}
+        currentFile={sourceAudio}
+        label="Upload Audio File"
+        description="Drag and drop your audio file here, or click to browse"
+        variant={workflowMode === 'precise' ? 'primary' : 'secondary'}
       />
 
       {sourceAudio && (
-        <div className="mt-6">
-          <h3 className="text-lg font-medium text-white mb-2">Reference Audio Preview</h3>
-          <WaveformDisplay audioBuffer={sourceAudio} showControls={true} />
+        <div className="mt-6 animate-fade-in">
+          <WaveformDisplay audioFile={sourceAudio} variant={workflowMode === 'precise' ? 'primary' : 'secondary'} />
         </div>
       )}
     </div>

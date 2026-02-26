@@ -1,107 +1,71 @@
 'use client'
 
-import React from 'react'
-import { Upload } from 'lucide-react'
-import { AudioUploader } from '@/components/audio/AudioUploader'
-import { WaveformDisplay } from '@/components/audio/WaveformDisplay'
-import { useWorkflowState } from '@/lib/hooks/useWorkflowState'
-import { cn } from '@/lib/utils/cn'
-import { logToTerminal } from '@/lib/utils/terminal-logger'
+import React from 'react';
+import { MessageSquare, Sparkles } from 'lucide-react';
 
-export const DesiredAudioSection: React.FC = () => {
-  const { 
-    setReferenceAudio, 
-    currentStep, 
-    progress,
-    setCurrentStep
-  } = useWorkflowState()
+interface DesiredAudioSectionProps {
+  desiredAudioDescription: string;
+  onChange: (description: string) => void;
+}
 
-  // For the desired audio, we'll use a separate state
-  const [desiredAudio, setDesiredAudio] = React.useState<AudioBuffer | null>(null)
-
-  const isActive = currentStep === 'upload_desired'
-  const isComplete = progress.upload_desired === 100
-
-  const handleUpload = (file: File, audioBuffer: AudioBuffer) => {
-    const logData = {
-      fileName: file.name,
-      fileSize: file.size,
-      duration: audioBuffer.duration,
-      sampleRate: audioBuffer.sampleRate,
-      channels: audioBuffer.numberOfChannels,
-      audioBufferType: typeof audioBuffer,
-      hasGetChannelData: typeof audioBuffer.getChannelData
-    }
-    
-    console.log('🎵 DesiredAudioSection: Desired audio uploaded successfully', logData)
-    logToTerminal('DesiredAudioSection', 'Desired audio uploaded successfully', logData)
-    
-    setDesiredAudio(audioBuffer)
-    setReferenceAudio(audioBuffer) // Store as referenceAudio for the workflow
-    setCurrentStep('generate')
-    
-    console.log('🎵 DesiredAudioSection: Moving to generate step')
-    logToTerminal('DesiredAudioSection', 'Moving to generate step')
-  }
+export const DesiredAudioSection: React.FC<DesiredAudioSectionProps> = ({
+  desiredAudioDescription,
+  onChange,
+}) => {
+  const examplePrompts = [
+    'A upbeat jazz piano solo with swing rhythm',
+    'Ambient electronic soundscape with ethereal pads',
+    'Classical string quartet playing a melancholic piece',
+    'Energetic rock guitar riff with distortion',
+  ];
 
   return (
-    <div className={cn(
-      'bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-6 transition-all duration-300',
-      isActive && 'ring-2 ring-primary-500/50 shadow-lg shadow-primary-500/20',
-      isComplete && 'bg-success/10 border-success/30',
-      !useWorkflowState.getState().sourceAudio && 'opacity-50 pointer-events-none' // Disable if no reference audio
-    )}>
-      <div className="flex items-center space-x-3 mb-6">
-        <div className="p-2 bg-primary-500 rounded-lg">
-          <Upload className="h-5 w-5 text-white" />
+    <div className="card">
+      <div className="flex items-start space-x-4 mb-6">
+        <div className="p-3 gradient-secondary rounded-lg">
+          <MessageSquare className="h-6 w-6 text-white" />
         </div>
-        <div>
-          <h2 className="text-xl font-semibold text-white">To sound like this</h2>
-          <p className="text-neutral-400 text-sm">
-            Upload the audio that represents how you want your reference to sound.
+        <div className="flex-1">
+          <h2 className="text-2xl font-bold mb-2 text-white">Describe Your Music</h2>
+          <p className="text-neutral-400">
+            Tell our AI what kind of music you want to create. Be as specific or creative as you like.
           </p>
         </div>
       </div>
 
-      <AudioUploader
-        onUpload={handleUpload}
-        accept={['audio/wav', 'audio/mp3', 'audio/flac']}
-        maxSize={20 * 1024 * 1024} // 20 MB
-        title="Drag & drop your desired sound here, or click to select"
-        description="This is how you want your reference audio to sound"
-      />
-
-      {desiredAudio && (
-        <div className="mt-6">
-          <h3 className="text-lg font-medium text-white mb-2">Desired Sound Preview</h3>
-          <WaveformDisplay
-            audioBuffer={desiredAudio}
-            height={150}
-            showControls={true}
+      <div className="space-y-4">
+        <div>
+          <label htmlFor="music-prompt" className="block text-sm font-medium text-neutral-300 mb-2">
+            Music Prompt
+          </label>
+          <textarea
+            id="music-prompt"
+            value={desiredAudioDescription}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="Describe the music you want to create..."
+            rows={4}
+            className="w-full input resize-none focus:ring-secondary-500"
           />
+        </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-black/20 rounded-lg mt-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-primary-400">
-                {desiredAudio.sampleRate.toLocaleString()} Hz
-              </div>
-              <div className="text-sm text-neutral-400">Sample Rate</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-primary-400">
-                {desiredAudio.numberOfChannels}
-              </div>
-              <div className="text-sm text-neutral-400">Channels</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-primary-400">
-                {desiredAudio.duration.toFixed(1)}s
-              </div>
-              <div className="text-sm text-neutral-400">Duration</div>
-            </div>
+        <div>
+          <p className="text-sm text-neutral-400 mb-3 flex items-center space-x-2">
+            <Sparkles className="h-4 w-4 text-secondary-400" />
+            <span>Try these examples:</span>
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {examplePrompts.map((prompt, index) => (
+              <button
+                key={index}
+                onClick={() => onChange(prompt)}
+                className="text-left p-3 rounded-lg bg-secondary-500/5 hover:bg-secondary-500/10 border border-secondary-500/20 hover:border-secondary-500/40 transition-all duration-200 text-sm text-neutral-300 hover:text-white"
+              >
+                {prompt}
+              </button>
+            ))}
           </div>
         </div>
-      )}
+      </div>
     </div>
-  )
-}
+  );
+};
