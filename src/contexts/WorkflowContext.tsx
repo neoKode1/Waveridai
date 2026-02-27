@@ -1,48 +1,62 @@
 'use client'
 
-import React, { createContext, useContext, useState, useCallback } from 'react'
-import { WorkflowState, WorkflowType } from '@/types/workflow'
+import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react'
+import { WorkflowType, ProcessingStage, AudioFile } from '@/types/workflow'
 
-const WorkflowContext = createContext<WorkflowState | undefined>(undefined)
+export interface WorkflowContextType {
+  currentWorkflow: WorkflowType
+  setCurrentWorkflow: (workflow: WorkflowType) => void
+  processingStage: ProcessingStage
+  setProcessingStage: (stage: ProcessingStage) => void
+  sourceAudio: AudioFile | null
+  setSourceAudio: (audio: AudioFile | null) => void
+  referenceAudio: AudioFile | null
+  setReferenceAudio: (audio: AudioFile | null) => void
+  processedAudio: AudioFile | null
+  setProcessedAudio: (audio: AudioFile | null) => void
+  processingProgress: number
+  setProcessingProgress: (progress: number) => void
+  error: Error | null
+  setError: (error: Error | null) => void
+  resetWorkflow: () => void
+}
 
-export function WorkflowProvider({ children }: { children: React.ReactNode }) {
-  const [workflowType, setWorkflowType] = useState<WorkflowType>('precise')
-  const [sourceAudio, setSourceAudio] = useState<File | null>(null)
-  const [referenceAudio, setReferenceAudio] = useState<File | null>(null)
-  const [desiredAudioDescription, setDesiredAudioDescription] = useState<string>('')
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [progress, setProgress] = useState(0)
-  const [generatedAudio, setGeneratedAudio] = useState<string | null>(null)
-  const [midiData, setMidiData] = useState<any | null>(null)
+const WorkflowContext = createContext<WorkflowContextType | undefined>(undefined)
 
-  const reset = useCallback(() => {
+export function WorkflowProvider({ children }: { children: ReactNode }) {
+  const [currentWorkflow, setCurrentWorkflow] = useState<WorkflowType>('precise')
+  const [processingStage, setProcessingStage] = useState<ProcessingStage>('idle')
+  const [sourceAudio, setSourceAudio] = useState<AudioFile | null>(null)
+  const [referenceAudio, setReferenceAudio] = useState<AudioFile | null>(null)
+  const [processedAudio, setProcessedAudio] = useState<AudioFile | null>(null)
+  const [processingProgress, setProcessingProgress] = useState(0)
+  const [error, setError] = useState<Error | null>(null)
+
+  const resetWorkflow = useCallback(() => {
+    setProcessingStage('idle')
     setSourceAudio(null)
     setReferenceAudio(null)
-    setDesiredAudioDescription('')
-    setIsProcessing(false)
-    setProgress(0)
-    setGeneratedAudio(null)
-    setMidiData(null)
+    setProcessedAudio(null)
+    setProcessingProgress(0)
+    setError(null)
   }, [])
 
-  const value: WorkflowState = {
-    workflowType,
-    setWorkflowType,
+  const value: WorkflowContextType = {
+    currentWorkflow,
+    setCurrentWorkflow,
+    processingStage,
+    setProcessingStage,
     sourceAudio,
     setSourceAudio,
     referenceAudio,
     setReferenceAudio,
-    desiredAudioDescription,
-    setDesiredAudioDescription,
-    isProcessing,
-    setIsProcessing,
-    progress,
-    setProgress,
-    generatedAudio,
-    setGeneratedAudio,
-    midiData,
-    setMidiData,
-    reset,
+    processedAudio,
+    setProcessedAudio,
+    processingProgress,
+    setProcessingProgress,
+    error,
+    setError,
+    resetWorkflow,
   }
 
   return (
