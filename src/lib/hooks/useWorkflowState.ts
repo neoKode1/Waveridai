@@ -1,197 +1,103 @@
-import { create } from 'zustand'
+'use client'
 
-// Use the native Web Audio API AudioBuffer
-type AudioBuffer = globalThis.AudioBuffer
+import { useState, useCallback } from 'react'
+import type { WorkflowStep } from '@/types/workflow'
 
-export interface AudioAnalysisResult {
-  features: {
-    duration: number
-    sampleRate: number
-    channels: number
-    tempo: number
-    key: string
-    timeSignature: [number, number]
-    spectralCentroid: number
-    zeroCrossingRate: number
-    instruments: string[]
-    genre: string
-    mood: string
-    style: string
-    dynamicRange: number
-    averageLoudness: number
-    harmonicRatio: number
-  }
-  confidence: number
-  analysisTime: number
-  timestamp: Date
-}
-
-export interface GeneratedPrompt {
-  prompt: string
-  confidence: number
-  reasoning: string
-  suggestedParameters: {
-    duration?: number
-    temperature?: number
-    seed?: number
-  }
-}
-
-export interface MIDIData {
-  tracks: MIDITrack[]
-  timeSignature: [number, number]
-  tempo: number
-  duration: number
-}
-
-export interface MIDITrack {
-  instrument: string
-  notes: MIDINoteEvent[]
-  confidence: number
-}
-
-// MIDI interfaces - archived for future use
-export interface MIDINoteEvent {
-  startTime: number
-  endTime: number
-  pitch: number
-  velocity: number
-  instrument: string
-}
-
-export interface ModelData {
-  id: string
-  name: string
-  type: 'ddsp' | 'diffusion'
-  trainedAt: Date
-  metadata: {
-    epochs?: number
-    learningRate?: number
-    batchSize?: number
-    [key: string]: string | number | boolean | undefined
-  }
-}
-
-export type WorkflowStep = 
-  | 'upload_reference'
-  | 'upload_desired'
-  | 'generate'
-  | 'results'
-
-interface WorkflowState {
-  // Audio data
-  sourceAudio: AudioBuffer | null
-  referenceAudio: AudioBuffer | null
-  generatedAudio: AudioBuffer | null
-  
-  // Audio analysis results
-  sourceAudioAnalysis: AudioAnalysisResult | null
-  referenceAudioAnalysis: AudioAnalysisResult | null
-  
-  // Workflow state
+export interface UseWorkflowStateReturn {
+  // Step management
   currentStep: WorkflowStep
-  progress: Record<WorkflowStep, number>
-  processing: {
-    audioAnalysis: boolean
-    generation: boolean
-  }
-  error: string | null
-  
-  // Actions
-  setSourceAudio: (audio: AudioBuffer | null) => void
-  setReferenceAudio: (audio: AudioBuffer | null) => void
-  setGeneratedAudio: (audio: AudioBuffer | null) => void
-  setSourceAudioAnalysis: (analysis: AudioAnalysisResult | null) => void
-  setReferenceAudioAnalysis: (analysis: AudioAnalysisResult | null) => void
   setCurrentStep: (step: WorkflowStep) => void
-  updateProgress: (step: WorkflowStep, progress: number) => void
-  setProcessing: (processing: Partial<WorkflowState['processing']>) => void
-  setError: (error: string | null) => void
+  goToStep: (step: WorkflowStep) => void
+  
+  // Audio files
+  referenceAudio: File | null
+  setReferenceAudio: (file: File | null) => void
+  sourceAudio: File | null
+  setSourceAudio: (file: File | null) => void
+  desiredAudio: File | null
+  setDesiredAudio: (file: File | null) => void
+  generatedAudio: Blob | null
+  setGeneratedAudio: (blob: Blob | null) => void
+  
+  // AI Generation fields
+  desiredAudioDescription: string
+  setDesiredAudioDescription: (description: string) => void
+  isGenerating: boolean
+  setIsGenerating: (generating: boolean) => void
+  
+  // Processing state
+  isProcessing: boolean
+  setIsProcessing: (processing: boolean) => void
+  progress: number
+  setProgress: (progress: number) => void
+  
+  // Reset
   resetWorkflow: () => void
 }
 
-const initialProgress: Record<WorkflowStep, number> = {
-  upload_reference: 0,
-  upload_desired: 0,
-  generate: 0,
-  results: 0
-}
-
-export const useWorkflowState = create<WorkflowState>((set, get) => ({
-  // Initial state
-  sourceAudio: null,
-  referenceAudio: null,
-  generatedAudio: null,
-  sourceAudioAnalysis: null,
-  referenceAudioAnalysis: null,
-  currentStep: 'upload_reference',
-  progress: initialProgress,
-  processing: {
-    audioAnalysis: false,
-    generation: false
-  },
-  error: null,
-
-  // Actions
-  setSourceAudio: (audio) => {
-    set({ sourceAudio: audio })
-    // No longer needed in simplified workflow
-  },
-
-  setReferenceAudio: (audio) => {
-    set({ referenceAudio: audio })
-    if (audio) {
-      set({ 
-        currentStep: 'upload_desired',
-        progress: { ...get().progress, upload_reference: 100 }
-      })
-    }
-  },
-
-  setGeneratedAudio: (audio) => {
-    set({ generatedAudio: audio })
-    if (audio) {
-      set({ 
-        currentStep: 'results',
-        progress: { ...get().progress, generate: 100, results: 100 }
-      })
-    }
-  },
-
-  setSourceAudioAnalysis: (analysis) => {
-    set({ sourceAudioAnalysis: analysis })
-  },
+export function useWorkflowState(): UseWorkflowStateReturn {
+  // Step management
+  const [currentStep, setCurrentStep] = useState<WorkflowStep>('upload_reference')
   
-  setReferenceAudioAnalysis: (analysis) => {
-    set({ referenceAudioAnalysis: analysis })
-  },
-
-  setCurrentStep: (step) => set({ currentStep: step }),
-
-  updateProgress: (step, progress) => 
-    set((state) => ({
-      progress: { ...state.progress, [step]: progress }
-    })),
-
-  setProcessing: (processing) =>
-    set((state) => ({
-      processing: { ...state.processing, ...processing }
-    })),
-
-  setError: (error) => set({ error }),
-
-  resetWorkflow: () => set({
-    sourceAudio: null,
-    referenceAudio: null,
-    generatedAudio: null,
-    sourceAudioAnalysis: null,
-    referenceAudioAnalysis: null,
-    currentStep: 'upload_reference',
-    progress: initialProgress,
-    processing: {
-      audioAnalysis: false,
-      generation: false
-    },
-    error: null
-  })
-}))
+  // Audio files
+  const [referenceAudio, setReferenceAudio] = useState<File | null>(null)
+  const [sourceAudio, setSourceAudio] = useState<File | null>(null)
+  const [desiredAudio, setDesiredAudio] = useState<File | null>(null)
+  const [generatedAudio, setGeneratedAudio] = useState<Blob | null>(null)
+  
+  // AI Generation fields
+  const [desiredAudioDescription, setDesiredAudioDescription] = useState<string>('')
+  const [isGenerating, setIsGenerating] = useState<boolean>(false)
+  
+  // Processing state
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [progress, setProgress] = useState(0)
+  
+  const goToStep = useCallback((step: WorkflowStep) => {
+    setCurrentStep(step)
+  }, [])
+  
+  const resetWorkflow = useCallback(() => {
+    setCurrentStep('upload_reference')
+    setReferenceAudio(null)
+    setSourceAudio(null)
+    setDesiredAudio(null)
+    setGeneratedAudio(null)
+    setDesiredAudioDescription('')
+    setIsGenerating(false)
+    setIsProcessing(false)
+    setProgress(0)
+  }, [])
+  
+  return {
+    // Step management
+    currentStep,
+    setCurrentStep,
+    goToStep,
+    
+    // Audio files
+    referenceAudio,
+    setReferenceAudio,
+    sourceAudio,
+    setSourceAudio,
+    desiredAudio,
+    setDesiredAudio,
+    generatedAudio,
+    setGeneratedAudio,
+    
+    // AI Generation fields
+    desiredAudioDescription,
+    setDesiredAudioDescription,
+    isGenerating,
+    setIsGenerating,
+    
+    // Processing state
+    isProcessing,
+    setIsProcessing,
+    progress,
+    setProgress,
+    
+    // Reset
+    resetWorkflow,
+  }
+}

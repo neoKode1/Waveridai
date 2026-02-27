@@ -1,107 +1,167 @@
 'use client'
 
 import React from 'react'
-import { Upload } from 'lucide-react'
+import { Upload, Mic, MessageSquare } from 'lucide-react'
 import { AudioUploader } from '@/components/audio/AudioUploader'
 import { WaveformDisplay } from '@/components/audio/WaveformDisplay'
 import { useWorkflowState } from '@/lib/hooks/useWorkflowState'
 import { cn } from '@/lib/utils/cn'
-import { logToTerminal } from '@/lib/utils/terminal-logger'
 
-export const DesiredAudioSection: React.FC = () => {
-  const { 
-    setReferenceAudio, 
-    currentStep, 
-    progress,
-    setCurrentStep
+interface DesiredAudioSectionProps {
+  isActive: boolean
+  onComplete: () => void
+  onBack: () => void
+}
+
+export const DesiredAudioSection: React.FC<DesiredAudioSectionProps> = ({
+  isActive,
+  onComplete,
+  onBack,
+}) => {
+  const {
+    desiredAudio,
+    setDesiredAudio,
+    desiredAudioDescription,
+    setDesiredAudioDescription,
   } = useWorkflowState()
 
-  // For the desired audio, we'll use a separate state
-  const [desiredAudio, setDesiredAudio] = React.useState<AudioBuffer | null>(null)
+  const [useTextInput, setUseTextInput] = React.useState(false)
 
-  const isActive = currentStep === 'upload_desired'
-  const isComplete = progress.upload_desired === 100
-
-  const handleUpload = (file: File, audioBuffer: AudioBuffer) => {
-    const logData = {
-      fileName: file.name,
-      fileSize: file.size,
-      duration: audioBuffer.duration,
-      sampleRate: audioBuffer.sampleRate,
-      channels: audioBuffer.numberOfChannels,
-      audioBufferType: typeof audioBuffer,
-      hasGetChannelData: typeof audioBuffer.getChannelData
-    }
-    
-    console.log('🎵 DesiredAudioSection: Desired audio uploaded successfully', logData)
-    logToTerminal('DesiredAudioSection', 'Desired audio uploaded successfully', logData)
-    
-    setDesiredAudio(audioBuffer)
-    setReferenceAudio(audioBuffer) // Store as referenceAudio for the workflow
-    setCurrentStep('generate')
-    
-    console.log('🎵 DesiredAudioSection: Moving to generate step')
-    logToTerminal('DesiredAudioSection', 'Moving to generate step')
+  const handleUpload = (file: File) => {
+    setDesiredAudio(file)
+    setDesiredAudioDescription('') // Clear text if file uploaded
   }
 
+  const handleRemove = () => {
+    setDesiredAudio(null)
+  }
+
+  const handleTextSubmit = () => {
+    if (desiredAudioDescription.trim()) {
+      onComplete()
+    }
+  }
+
+  const canProceed = desiredAudio !== null || desiredAudioDescription.trim().length > 0
+
   return (
-    <div className={cn(
-      'bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-6 transition-all duration-300',
-      isActive && 'ring-2 ring-primary-500/50 shadow-lg shadow-primary-500/20',
-      isComplete && 'bg-success/10 border-success/30',
-      !useWorkflowState.getState().sourceAudio && 'opacity-50 pointer-events-none' // Disable if no reference audio
-    )}>
-      <div className="flex items-center space-x-3 mb-6">
-        <div className="p-2 bg-primary-500 rounded-lg">
-          <Upload className="h-5 w-5 text-white" />
+    <div
+      className={cn(
+        'card transition-all duration-200',
+        isActive ? 'ring-2 ring-primary-500' : 'opacity-50'
+      )}
+    >
+      <div className="flex items-start space-x-4">
+        <div className="p-3 bg-accent-purple/10 rounded-lg">
+          <Mic className="h-6 w-6 text-accent-purple" />
         </div>
-        <div>
-          <h2 className="text-xl font-semibold text-white">To sound like this</h2>
-          <p className="text-neutral-400 text-sm">
-            Upload the audio that represents how you want your reference to sound.
+        <div className="flex-1">
+          <h2 className="text-xl font-semibold text-neutral-100 mb-2">
+            Step 3: Specify Desired Audio
+          </h2>
+          <p className="text-neutral-400 mb-4">
+            Either upload a desired audio sample or describe what you want using text (AI generation).
           </p>
-        </div>
-      </div>
 
-      <AudioUploader
-        onUpload={handleUpload}
-        accept={['audio/wav', 'audio/mp3', 'audio/flac']}
-        maxSize={20 * 1024 * 1024} // 20 MB
-        title="Drag & drop your desired sound here, or click to select"
-        description="This is how you want your reference audio to sound"
-      />
+          {/* Toggle between upload and text input */}
+          <div className="flex space-x-4 mb-4">
+            <button
+              onClick={() => setUseTextInput(false)}
+              disabled={!isActive}
+              className={cn(
+                'px-4 py-2 rounded-lg font-medium transition-all',
+                !useTextInput
+                  ? 'bg-primary-500 text-white'
+                  : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700',
+                !isActive && 'opacity-50 cursor-not-allowed'
+              )}
+            >
+              Upload Audio
+            </button>
+            <button
+              onClick={() => setUseTextInput(true)}
+              disabled={!isActive}
+              className={cn(
+                'px-4 py-2 rounded-lg font-medium transition-all',
+                useTextInput
+                  ? 'bg-primary-500 text-white'
+                  : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700',
+                !isActive && 'opacity-50 cursor-not-allowed'
+              )}
+            >
+              AI Generation (Text)
+            </button>
+          </div>
 
-      {desiredAudio && (
-        <div className="mt-6">
-          <h3 className="text-lg font-medium text-white mb-2">Desired Sound Preview</h3>
-          <WaveformDisplay
-            audioBuffer={desiredAudio}
-            height={150}
-            showControls={true}
-          />
+          {!useTextInput ? (
+            // Audio upload mode
+            !desiredAudio ? (
+              <AudioUploader
+                onUpload={handleUpload}
+                accept="audio/*"
+                maxSize={50 * 1024 * 1024}
+                label="Drop desired audio here or click to browse"
+                icon={<Upload className="h-8 w-8" />}
+              />
+            ) : (
+              <div className="space-y-4">
+                <WaveformDisplay
+                  audioFile={desiredAudio}
+                  onRemove={handleRemove}
+                  title="Desired Audio"
+                />
+              </div>
+            )
+          ) : (
+            // Text input mode (AI Generation)
+            <div className="space-y-4">
+              <div className="relative">
+                <MessageSquare className="absolute left-3 top-3 h-5 w-5 text-neutral-500" />
+                <textarea
+                  value={desiredAudioDescription}
+                  onChange={(e) => setDesiredAudioDescription(e.target.value)}
+                  disabled={!isActive}
+                  placeholder="Describe the music you want to generate (e.g., 'upbeat electronic dance music with synthesizers')..."
+                  className={cn(
+                    'w-full pl-10 pr-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg',
+                    'text-neutral-100 placeholder:text-neutral-500',
+                    'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent',
+                    'min-h-[120px] resize-y',
+                    !isActive && 'opacity-50 cursor-not-allowed'
+                  )}
+                />
+              </div>
+              <p className="text-xs text-neutral-500">
+                Powered by Google Lyria 2 - High-quality AI music generation
+              </p>
+            </div>
+          )}
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-black/20 rounded-lg mt-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-primary-400">
-                {desiredAudio.sampleRate.toLocaleString()} Hz
-              </div>
-              <div className="text-sm text-neutral-400">Sample Rate</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-primary-400">
-                {desiredAudio.numberOfChannels}
-              </div>
-              <div className="text-sm text-neutral-400">Channels</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-primary-400">
-                {desiredAudio.duration.toFixed(1)}s
-              </div>
-              <div className="text-sm text-neutral-400">Duration</div>
-            </div>
+          {/* Navigation buttons */}
+          <div className="flex space-x-4 mt-4">
+            <button
+              onClick={onBack}
+              disabled={!isActive}
+              className={cn(
+                'button-secondary flex-1',
+                !isActive && 'opacity-50 cursor-not-allowed'
+              )}
+            >
+              Back
+            </button>
+            <button
+              onClick={useTextInput ? handleTextSubmit : onComplete}
+              disabled={!isActive || !canProceed}
+              className={cn(
+                'button-primary flex-1',
+                (!isActive || !canProceed) && 'opacity-50 cursor-not-allowed'
+              )}
+            >
+              Continue to Generate
+            </button>
           </div>
         </div>
-      )}
+      </div>
     </div>
   )
 }
