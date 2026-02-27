@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI, GenerativeModel, Part } from '@google/generative-ai'
+import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai'
 import { ProcessingResult, AudioFile } from '@/types/workflow'
 
 // Initialize the Gemini API client
