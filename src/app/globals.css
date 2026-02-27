@@ -34,6 +34,11 @@
   body {
     @apply bg-neutral-950 text-neutral-100;
     font-feature-settings: "rlig" 1, "calt" 1;
+    min-height: 100vh;
+  }
+  
+  html {
+    @apply bg-neutral-950;
   }
 }
 
