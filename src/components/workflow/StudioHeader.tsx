@@ -6,7 +6,7 @@ import { Zap, Settings, HelpCircle } from 'lucide-react'
 
 export const StudioHeader: React.FC = () => {
   return (
-    <header className="bg-black/20 backdrop-blur-sm border-b border-white/10">
+    <header className="bg-neutral-950/80 backdrop-blur-sm border-b border-white/10">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
