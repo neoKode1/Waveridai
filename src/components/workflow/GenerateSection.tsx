@@ -4,7 +4,7 @@ import React from 'react'
 import { Zap, Loader2 } from 'lucide-react'
 import { useWorkflowState } from '@/lib/hooks/useWorkflowState'
 import { cn } from '@/lib/utils/cn'
-import { generateAudio } from '@/lib/services/lyria-service'
+import { lyriaService } from '@/lib/services/lyria-service'
 
 interface GenerateSectionProps {
   isActive: boolean
@@ -39,23 +39,22 @@ export const GenerateSection: React.FC<GenerateSectionProps> = ({
     setError(null)
 
     try {
-      // Determine if we're using AI generation (text) or file-based synthesis
       const useAIGeneration = !desiredAudio && desiredAudioDescription.trim().length > 0
 
       if (useAIGeneration) {
         // AI Generation workflow using Google Lyria 2
-        const result = await generateAudio({
+        const result = await lyriaService.generateMusic({
           prompt: desiredAudioDescription,
-          duration: 30, // Default 30 seconds
-          referenceAudio: referenceAudio,
+          duration: 30,
         })
-        setGeneratedAudio(result)
+        // Fetch the audio URL and store as Blob
+        const audioResponse = await fetch(result.audio_url)
+        const audioBlob = await audioResponse.blob()
+        setGeneratedAudio(audioBlob)
       } else {
         // File-based synthesis workflow
         // TODO: Implement actual synthesis API call
         await new Promise((resolve) => setTimeout(resolve, 3000))
-        
-        // For now, create a mock blob (in production, this would be the actual synthesized audio)
         const mockBlob = new Blob(['mock audio data'], { type: 'audio/wav' })
         setGeneratedAudio(mockBlob)
       }
@@ -89,7 +88,6 @@ export const GenerateSection: React.FC<GenerateSectionProps> = ({
             Process your audio files to create the synthesized output.
           </p>
 
-          {/* Show current configuration */}
           <div className="bg-neutral-900 rounded-lg p-4 mb-4 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-sm text-neutral-400">Reference Audio:</span>
@@ -162,3 +160,4 @@ export const GenerateSection: React.FC<GenerateSectionProps> = ({
     </div>
   )
 }
+
