@@ -1,6 +1,6 @@
 export type WorkflowType = 'precise' | 'ai-generation'
 
-export type ProcessingStage = 
+export type ProcessingStage =
   | 'idle'
   | 'uploading'
   | 'extracting-midi'
@@ -10,6 +10,9 @@ export type ProcessingStage =
   | 'generating-ai'
   | 'processing-complete'
   | 'error'
+
+// Step identifier for UI navigation
+export type WorkflowStep = 'upload_reference' | 'upload_source' | 'upload_desired' | 'generate' | 'results'
 
 export interface AudioFile {
   id: string
@@ -61,7 +64,8 @@ export interface ProcessingResult {
   metadata?: Record<string, unknown>
 }
 
-export interface WorkflowStep {
+// Detailed step config (internal use)
+export interface WorkflowStepConfig {
   id: string
   name: string
   description: string
@@ -70,3 +74,4 @@ export interface WorkflowStep {
   progress: number
   error?: string
 }
+
