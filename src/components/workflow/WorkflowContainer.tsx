@@ -1,89 +1,55 @@
 'use client'
 
 import React from 'react'
-import { StudioHeader } from './StudioHeader'
-import { WorkflowProgress } from './WorkflowProgress'
+import { useWorkflowState } from '@/lib/hooks/useWorkflowState'
 import { ReferenceUploadSection } from './ReferenceUploadSection'
 import { SourceUploadSection } from './SourceUploadSection'
 import { DesiredAudioSection } from './DesiredAudioSection'
 import { GenerateSection } from './GenerateSection'
 import { ResultsSection } from './ResultsSection'
-import { useWorkflowState } from '@/lib/hooks/useWorkflowState'
+import { WorkflowProgress } from './WorkflowProgress'
+import type { WorkflowStep } from '@/types/workflow'
 
 export const WorkflowContainer: React.FC = () => {
-  const {
-    currentStep,
-    setCurrentStep,
-    referenceAudio,
-    setReferenceAudio,
-    sourceAudio,
-    setSourceAudio,
-    desiredAudioDescription,
-    setDesiredAudioDescription,
-    generatedAudio,
-    setGeneratedAudio,
-    isGenerating,
-    setIsGenerating
-  } = useWorkflowState()
+  const workflow = useWorkflowState()
+  const { currentStep, goToStep } = workflow
 
   return (
     <div className="min-h-screen bg-neutral-950">
-      <StudioHeader />
-      
-      <main className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8">
         <WorkflowProgress currentStep={currentStep} />
         
-        <div className="mt-8 space-y-8">
+        <div className="mt-8 space-y-6">
           <ReferenceUploadSection
-            referenceAudio={referenceAudio}
-            setReferenceAudio={setReferenceAudio}
-            isActive={currentStep === 1}
-            onNext={() => setCurrentStep(2)}
+            isActive={currentStep === 'upload_reference'}
+            onComplete={() => goToStep('upload_source')}
           />
           
           <SourceUploadSection
-            sourceAudio={sourceAudio}
-            setSourceAudio={setSourceAudio}
-            isActive={currentStep === 2}
-            onNext={() => setCurrentStep(3)}
-            onBack={() => setCurrentStep(1)}
+            isActive={currentStep === 'upload_source'}
+            onComplete={() => goToStep('upload_desired')}
+            onBack={() => goToStep('upload_reference')}
           />
           
           <DesiredAudioSection
-            desiredAudioDescription={desiredAudioDescription}
-            setDesiredAudioDescription={setDesiredAudioDescription}
-            isActive={currentStep === 3}
-            onNext={() => setCurrentStep(4)}
-            onBack={() => setCurrentStep(2)}
+            isActive={currentStep === 'upload_desired'}
+            onComplete={() => goToStep('generate')}
+            onBack={() => goToStep('upload_source')}
           />
           
           <GenerateSection
-            referenceAudio={referenceAudio}
-            sourceAudio={sourceAudio}
-            desiredAudioDescription={desiredAudioDescription}
-            isActive={currentStep === 4}
-            isGenerating={isGenerating}
-            setIsGenerating={setIsGenerating}
-            onGenerateComplete={(audio) => {
-              setGeneratedAudio(audio)
-              setCurrentStep(5)
-            }}
-            onBack={() => setCurrentStep(3)}
+            isActive={currentStep === 'generate'}
+            onComplete={() => goToStep('results')}
+            onBack={() => goToStep('upload_desired')}
           />
           
           <ResultsSection
-            generatedAudio={generatedAudio}
-            isActive={currentStep === 5}
-            onReset={() => {
-              setCurrentStep(1)
-              setReferenceAudio(null)
-              setSourceAudio(null)
-              setDesiredAudioDescription('')
-              setGeneratedAudio(null)
-            }}
+            isActive={currentStep === 'results'}
+            onBack={() => goToStep('generate')}
+            onReset={() => goToStep('upload_reference')}
           />
         </div>
-      </main>
+      </div>
     </div>
   )
 }
