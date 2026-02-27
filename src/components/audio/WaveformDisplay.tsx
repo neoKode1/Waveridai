@@ -1,283 +1,233 @@
 'use client'
 
-import React, { useRef, useEffect, useState } from 'react'
-import { Play, Pause, SkipBack, SkipForward } from 'lucide-react'
-// import { MIDINoteEvent } from '@/lib/hooks/useWorkflowState' // Archived for future use
+import React, { useRef, useEffect, useState, useCallback } from 'react'
+import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 
-// Use the native Web Audio API AudioBuffer
-type AudioBuffer = globalThis.AudioBuffer
-
 interface WaveformDisplayProps {
-  audioBuffer: AudioBuffer
-  annotations?: Array<{startTime: number, endTime: number, note: number}> // MIDINoteEvent[] - archived for future use
+  audioUrl?: string
+  audioBuffer?: AudioBuffer
   className?: string
+  color?: string
   height?: number
-  showControls?: boolean
-  onTimeUpdate?: (currentTime: number) => void
+  isLoading?: boolean
 }
 
 export const WaveformDisplay: React.FC<WaveformDisplayProps> = ({
+  audioUrl,
   audioBuffer,
-  annotations = [],
   className,
-  height = 120,
-  showControls = true,
-  onTimeUpdate
+  color = 'oklch(70.7% 0.022 261.325)',
+  height = 80,
+  isLoading = false
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [localBuffer, setLocalBuffer] = useState<AudioBuffer | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
-  const sourceRef = useRef<AudioBufferSourceNode | null>(null)
-  const gainNodeRef = useRef<GainNode | null>(null)
-  
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [currentTime, setCurrentTime] = useState(0)
-  const [duration, setDuration] = useState(0)
-          const [, setIsDragging] = useState(false)
 
+  // Initialize audio context
   useEffect(() => {
-    setDuration(audioBuffer.duration)
-    drawWaveform()
-  }, [audioBuffer])
+    if (typeof window !== 'undefined' && !audioContextRef.current) {
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)()
+    }
 
-  useEffect(() => {
-    if (audioContextRef.current && sourceRef.current && gainNodeRef.current) {
-      const updateTime = () => {
-        if (sourceRef.current && audioContextRef.current) {
-          const elapsed = audioContextRef.current.currentTime - (sourceRef.current as AudioBufferSourceNode & { startTime?: number }).startTime!
-          const newTime = Math.max(0, Math.min(elapsed, duration))
-          setCurrentTime(newTime)
-          onTimeUpdate?.(newTime)
-          
-          if (newTime >= duration) {
-            setIsPlaying(false)
-            setCurrentTime(0)
-          }
-        }
-        
-        if (isPlaying) {
-          requestAnimationFrame(updateTime)
-        }
-      }
-      
-      if (isPlaying) {
-        updateTime()
+    return () => {
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        audioContextRef.current.close()
       }
     }
-  }, [isPlaying, duration, onTimeUpdate])
+  }, [])
 
-  const drawWaveform = () => {
+  // Draw waveform function
+  const drawWaveform = useCallback((buffer: AudioBuffer) => {
     const canvas = canvasRef.current
     if (!canvas) return
-
-    // Validate audioBuffer
-    if (!audioBuffer) {
-      console.log('WaveformDisplay: No audioBuffer provided')
-      return
-    }
-
-    // Validate audioBuffer has the required methods
-    if (typeof audioBuffer.getChannelData !== 'function') {
-      console.error('WaveformDisplay: Invalid audioBuffer - missing getChannelData method', {
-        audioBuffer,
-        audioBufferType: typeof audioBuffer,
-        audioBufferConstructor: audioBuffer?.constructor?.name,
-        hasGetChannelData: typeof audioBuffer?.getChannelData
-      })
-      return
-    }
 
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    const { width, height: canvasHeight } = canvas
-    const channelData = audioBuffer.getChannelData(0)
-    const samplesPerPixel = Math.floor(channelData.length / width)
+    const data = buffer.getChannelData(0)
+    const step = Math.ceil(data.length / canvas.width)
+    const amp = canvas.height / 2
 
-    // Clear canvas
-    ctx.fillStyle = '#1e293b'
-    ctx.fillRect(0, 0, width, canvasHeight)
+    ctx.fillStyle = 'oklch(15% 0 0)'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-    // Draw waveform
-    ctx.strokeStyle = '#8b5cf6'
+    ctx.strokeStyle = color
     ctx.lineWidth = 1
     ctx.beginPath()
 
-    for (let x = 0; x < width; x++) {
-      const start = x * samplesPerPixel
-      const end = Math.min(start + samplesPerPixel, channelData.length)
-      
-      let sum = 0
-      for (let i = start; i < end; i++) {
-        sum += Math.abs(channelData[i])
+    for (let i = 0; i < canvas.width; i++) {
+      let min = 1.0
+      let max = -1.0
+
+      for (let j = 0; j < step; j++) {
+        const datum = data[(i * step) + j]
+        if (datum < min) min = datum
+        if (datum > max) max = datum
       }
-      const average = sum / (end - start)
-      
-      const y = (1 - average) * canvasHeight / 2
-      ctx.lineTo(x, y)
+
+      const y1 = (1 + min) * amp
+      const y2 = (1 + max) * amp
+
+      if (i === 0) {
+        ctx.moveTo(i, y1)
+      }
+
+      ctx.lineTo(i, y1)
+      ctx.lineTo(i, y2)
     }
 
     ctx.stroke()
+  }, [color])
 
-    // Draw progress line
-    if (duration > 0) {
-      const progressX = (currentTime / duration) * width
-      ctx.strokeStyle = '#fbbf24'
-      ctx.lineWidth = 2
-      ctx.beginPath()
-      ctx.moveTo(progressX, 0)
-      ctx.lineTo(progressX, canvasHeight)
-      ctx.stroke()
+  // Load audio from URL
+  useEffect(() => {
+    if (audioUrl && audioContextRef.current) {
+      const loadAudio = async () => {
+        try {
+          const response = await fetch(audioUrl)
+          const arrayBuffer = await response.arrayBuffer()
+          const buffer = await audioContextRef.current!.decodeAudioData(arrayBuffer)
+          setLocalBuffer(buffer)
+        } catch (error) {
+          console.error('Error loading audio:', error)
+        }
+      }
+
+      loadAudio()
     }
+  }, [audioUrl])
 
-    // Draw MIDI annotations
-    if (annotations.length > 0) {
-      annotations.forEach(note => {
-        const startX = (note.startTime / duration) * width
-        const endX = (note.endTime / duration) * width
-        const noteHeight = canvasHeight / 12 // 12 semitones per octave
-        const y = canvasHeight - ((note.note % 12) * noteHeight) - noteHeight
-
-        ctx.fillStyle = `rgba(139, 92, 246, 0.7)`
-        ctx.fillRect(startX, y, endX - startX, noteHeight)
-      })
+  // Draw waveform when buffer changes
+  useEffect(() => {
+    const bufferToUse = audioBuffer || localBuffer
+    if (bufferToUse) {
+      drawWaveform(bufferToUse)
     }
-  }
+  }, [audioBuffer, localBuffer, drawWaveform])
 
-  const handleCanvasClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
+  // Handle canvas resize
+  useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
 
-    const rect = canvas.getBoundingClientRect()
-    const x = event.clientX - rect.left
-    const newTime = (x / canvas.width) * duration
-    
-    setCurrentTime(newTime)
-    if (isPlaying) {
-      stopAudio()
-      playAudio(newTime)
-    }
-  }
+    const handleResize = () => {
+      const rect = canvas.getBoundingClientRect()
+      canvas.width = rect.width * window.devicePixelRatio
+      canvas.height = rect.height * window.devicePixelRatio
+      canvas.style.width = `${rect.width}px`
+      canvas.style.height = `${rect.height}px`
 
-  const handleMouseDown = () => setIsDragging(true)
-  const handleMouseUp = () => setIsDragging(false)
-
-  const playAudio = (startTime: number = currentTime) => {
-    if (!audioContextRef.current) {
-      audioContextRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
+      const bufferToUse = audioBuffer || localBuffer
+      if (bufferToUse) {
+        drawWaveform(bufferToUse)
+      }
     }
 
-    const audioContext = audioContextRef.current
-    const source = audioContext.createBufferSource()
-    const gainNode = audioContext.createGain()
+    handleResize()
+    window.addEventListener('resize', handleResize)
 
-    source.buffer = audioBuffer
-    source.connect(gainNode)
-    gainNode.connect(audioContext.destination)
-
-    source.start(0, startTime)
-    source.stop(audioContext.currentTime + (duration - startTime))
-
-    sourceRef.current = source
-    gainNodeRef.current = gainNode
-    setIsPlaying(true)
-
-    source.onended = () => {
-      setIsPlaying(false)
-      setCurrentTime(0)
+    return () => {
+      window.removeEventListener('resize', handleResize)
     }
-  }
+  }, [audioBuffer, localBuffer, drawWaveform])
 
-  const stopAudio = () => {
-    if (sourceRef.current) {
-      sourceRef.current.stop()
-      sourceRef.current.disconnect()
-      sourceRef.current = null
+  return (
+    <div className={cn('relative w-full', className)} style={{ height: `${height}px` }}>
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-neutral-900/80 backdrop-blur-sm rounded-lg">
+          <Loader2 className="h-6 w-6 animate-spin text-primary-400" />
+        </div>
+      )}
+      <canvas
+        ref={canvasRef}
+        className="w-full h-full rounded-lg"
+        style={{ display: 'block' }}
+      />
+    </div>
+  )
+}
+
+// Miniature waveform for thumbnails
+export const WaveformThumbnail: React.FC<{
+  audioUrl: string
+  className?: string
+}> = ({ audioUrl, className }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  const drawWaveform = useCallback(async () => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    try {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+      const response = await fetch(audioUrl)
+      const arrayBuffer = await response.arrayBuffer()
+      const buffer = await audioContext.decodeAudioData(arrayBuffer)
+
+      const data = buffer.getChannelData(0)
+      const step = Math.ceil(data.length / canvas.width)
+      const amp = canvas.height / 2
+
+      ctx.fillStyle = 'oklch(20% 0 0)'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+      ctx.strokeStyle = 'oklch(70.7% 0.022 261.325)'
+      ctx.lineWidth = 1
+      ctx.beginPath()
+
+      for (let i = 0; i < canvas.width; i++) {
+        let min = 1.0
+        let max = -1.0
+
+        for (let j = 0; j < step; j++) {
+          const datum = data[(i * step) + j]
+          if (datum < min) min = datum
+          if (datum > max) max = datum
+        }
+
+        const y1 = (1 + min) * amp
+        const y2 = (1 + max) * amp
+
+        if (i === 0) {
+          ctx.moveTo(i, y1)
+        }
+
+        ctx.lineTo(i, y1)
+        ctx.lineTo(i, y2)
+      }
+
+      ctx.stroke()
+      audioContext.close()
+      setIsLoading(false)
+    } catch (error) {
+      console.error('Error drawing waveform:', error)
+      setIsLoading(false)
     }
-    setIsPlaying(false)
-  }
-
-  const handlePlayPause = () => {
-    if (isPlaying) {
-      stopAudio()
-    } else {
-      playAudio()
-    }
-  }
-
-  const handleSeek = (direction: 'back' | 'forward') => {
-    const seekAmount = 5 // 5 seconds
-    const newTime = direction === 'back' 
-      ? Math.max(0, currentTime - seekAmount)
-      : Math.min(duration, currentTime + seekAmount)
-    
-    setCurrentTime(newTime)
-    if (isPlaying) {
-      stopAudio()
-      playAudio(newTime)
-    }
-  }
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = Math.floor(seconds % 60)
-    return `${mins}:${secs.toString().padStart(2, '0')}`
-  }
+  }, [audioUrl])
 
   useEffect(() => {
     drawWaveform()
-  }, [currentTime, annotations])
+  }, [drawWaveform])
 
   return (
-    <div className={cn('space-y-4', className)}>
-      <div className="relative">
-        <canvas
-          ref={canvasRef}
-          width={800}
-          height={height}
-          className="w-full border border-gray-700 rounded-lg cursor-pointer"
-          onClick={handleCanvasClick}
-          onMouseDown={handleMouseDown}
-          onMouseUp={handleMouseUp}
-        />
-        
-        {/* Time markers */}
-        <div className="absolute bottom-0 left-0 right-0 flex justify-between text-xs text-gray-500 px-2">
-          <span>{formatTime(currentTime)}</span>
-          <span>{formatTime(duration)}</span>
-        </div>
-      </div>
-
-      {showControls && (
-        <div className="flex items-center justify-center space-x-4">
-          <button
-            onClick={() => handleSeek('back')}
-            className="p-2 rounded-full hover:bg-gray-700 transition-colors"
-            disabled={isPlaying}
-          >
-            <SkipBack className="h-5 w-5" />
-          </button>
-          
-          <button
-            onClick={handlePlayPause}
-            className="p-3 rounded-full bg-purple-600 hover:bg-purple-700 transition-colors"
-          >
-            {isPlaying ? (
-              <Pause className="h-6 w-6" />
-            ) : (
-              <Play className="h-6 w-6 ml-1" />
-            )}
-          </button>
-          
-          <button
-            onClick={() => handleSeek('forward')}
-            className="p-2 rounded-full hover:bg-gray-700 transition-colors"
-            disabled={isPlaying}
-          >
-            <SkipForward className="h-5 w-5" />
-          </button>
+    <div className={cn('relative', className)}>
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Loader2 className="h-4 w-4 animate-spin text-primary-400" />
         </div>
       )}
+      <canvas
+        ref={canvasRef}
+        width={200}
+        height={40}
+        className="w-full h-full rounded"
+      />
     </div>
   )
 }
