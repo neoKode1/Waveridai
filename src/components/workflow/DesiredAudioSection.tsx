@@ -1,167 +1,169 @@
 'use client'
 
-import React from 'react'
-import { Upload, Mic, MessageSquare } from 'lucide-react'
-import { AudioUploader } from '@/components/audio/AudioUploader'
-import { WaveformDisplay } from '@/components/audio/WaveformDisplay'
-import { useWorkflowState } from '@/lib/hooks/useWorkflowState'
-import { cn } from '@/lib/utils/cn'
+import React, { useState } from 'react'
+import { Music, Sparkles, Wand2, Mic } from 'lucide-react'
 
 interface DesiredAudioSectionProps {
-  isActive: boolean
-  onComplete: () => void
-  onBack: () => void
+  audioFile: File | null
+  customPrompt: string
+  setCustomPrompt: (prompt: string) => void
+  description: string
+  setDescription: (desc: string) => void
 }
 
 export const DesiredAudioSection: React.FC<DesiredAudioSectionProps> = ({
-  isActive,
-  onComplete,
-  onBack,
+  audioFile,
+  customPrompt,
+  setCustomPrompt,
+  description,
+  setDescription,
 }) => {
-  const {
-    desiredAudio,
-    setDesiredAudio,
-    desiredAudioDescription,
-    setDesiredAudioDescription,
-  } = useWorkflowState()
+  const [activeTab, setActiveTab] = useState<'custom' | 'presets'>('custom')
 
-  const [useTextInput, setUseTextInput] = React.useState(false)
-
-  const handleUpload = (file: File) => {
-    setDesiredAudio(file)
-    setDesiredAudioDescription('') // Clear text if file uploaded
-  }
-
-  const handleRemove = () => {
-    setDesiredAudio(null)
-  }
-
-  const handleTextSubmit = () => {
-    if (desiredAudioDescription.trim()) {
-      onComplete()
-    }
-  }
-
-  const canProceed = desiredAudio !== null || desiredAudioDescription.trim().length > 0
+  const presetPrompts = [
+    {
+      title: 'Vintage Jazz Piano',
+      description: 'Warm, vintage jazz piano with soft reverb and natural room acoustics',
+      icon: Music,
+    },
+    {
+      title: 'Synthwave Lead',
+      description: 'Retro 80s synthwave lead with lush chorus and tape saturation',
+      icon: Wand2,
+    },
+    {
+      title: 'Orchestral Strings',
+      description: 'Rich orchestral string section with cinematic reverb and subtle vibrato',
+      icon: Music,
+    },
+    {
+      title: 'Lo-fi Hip Hop',
+      description: 'Warm lo-fi hip hop sound with vinyl crackle and tape wobble',
+      icon: Mic,
+    },
+  ]
 
   return (
-    <div
-      className={cn(
-        'card transition-all duration-200',
-        isActive ? 'ring-2 ring-primary-500' : 'opacity-50'
-      )}
-    >
-      <div className="flex items-start space-x-4">
-        <div className="p-3 bg-accent-purple/10 rounded-lg">
-          <Mic className="h-6 w-6 text-accent-purple" />
-        </div>
-        <div className="flex-1">
-          <h2 className="text-xl font-semibold text-neutral-100 mb-2">
-            Step 3: Specify Desired Audio
-          </h2>
-          <p className="text-neutral-400 mb-4">
-            Either upload a desired audio sample or describe what you want using text (AI generation).
-          </p>
-
-          {/* Toggle between upload and text input */}
-          <div className="flex space-x-4 mb-4">
-            <button
-              onClick={() => setUseTextInput(false)}
-              disabled={!isActive}
-              className={cn(
-                'px-4 py-2 rounded-lg font-medium transition-all',
-                !useTextInput
-                  ? 'bg-primary-500 text-white'
-                  : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700',
-                !isActive && 'opacity-50 cursor-not-allowed'
-              )}
-            >
-              Upload Audio
-            </button>
-            <button
-              onClick={() => setUseTextInput(true)}
-              disabled={!isActive}
-              className={cn(
-                'px-4 py-2 rounded-lg font-medium transition-all',
-                useTextInput
-                  ? 'bg-primary-500 text-white'
-                  : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700',
-                !isActive && 'opacity-50 cursor-not-allowed'
-              )}
-            >
-              AI Generation (Text)
-            </button>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="p-3 bg-gradient-to-br from-secondary-500/20 to-secondary-600/20 rounded-xl border border-secondary-500/30">
+            <Sparkles className="h-6 w-6 text-secondary-400" />
           </div>
-
-          {!useTextInput ? (
-            // Audio upload mode
-            !desiredAudio ? (
-              <AudioUploader
-                onUpload={handleUpload}
-                accept="audio/*"
-                maxSize={50 * 1024 * 1024}
-                label="Drop desired audio here or click to browse"
-                icon={<Upload className="h-8 w-8" />}
-              />
-            ) : (
-              <div className="space-y-4">
-                <WaveformDisplay
-                  audioFile={desiredAudio}
-                  onRemove={handleRemove}
-                  title="Desired Audio"
-                />
-              </div>
-            )
-          ) : (
-            // Text input mode (AI Generation)
-            <div className="space-y-4">
-              <div className="relative">
-                <MessageSquare className="absolute left-3 top-3 h-5 w-5 text-neutral-500" />
-                <textarea
-                  value={desiredAudioDescription}
-                  onChange={(e) => setDesiredAudioDescription(e.target.value)}
-                  disabled={!isActive}
-                  placeholder="Describe the music you want to generate (e.g., 'upbeat electronic dance music with synthesizers')..."
-                  className={cn(
-                    'w-full pl-10 pr-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg',
-                    'text-neutral-100 placeholder:text-neutral-500',
-                    'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent',
-                    'min-h-[120px] resize-y',
-                    !isActive && 'opacity-50 cursor-not-allowed'
-                  )}
-                />
-              </div>
-              <p className="text-xs text-neutral-500">
-                Powered by Google Lyria 2 - High-quality AI music generation
-              </p>
-            </div>
-          )}
-
-          {/* Navigation buttons */}
-          <div className="flex space-x-4 mt-4">
-            <button
-              onClick={onBack}
-              disabled={!isActive}
-              className={cn(
-                'button-secondary flex-1',
-                !isActive && 'opacity-50 cursor-not-allowed'
-              )}
-            >
-              Back
-            </button>
-            <button
-              onClick={useTextInput ? handleTextSubmit : onComplete}
-              disabled={!isActive || !canProceed}
-              className={cn(
-                'button-primary flex-1',
-                (!isActive || !canProceed) && 'opacity-50 cursor-not-allowed'
-              )}
-            >
-              Continue to Generate
-            </button>
+          <div>
+            <h2 className="text-2xl font-bold text-neutral-50">Desired Sound</h2>
+            <p className="text-sm text-neutral-400">Define your target audio characteristics</p>
           </div>
         </div>
       </div>
+
+      {/* Tab Navigation */}
+      <div className="flex space-x-2 p-1 bg-neutral-900/50 rounded-xl border border-neutral-800/50">
+        <button
+          onClick={() => setActiveTab('custom')}
+          className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-300 ${
+            activeTab === 'custom'
+              ? 'bg-gradient-to-br from-primary-500/20 to-primary-600/20 text-primary-400 border border-primary-500/30'
+              : 'text-neutral-400 hover:text-neutral-300 hover:bg-neutral-800/30'
+          }`}
+        >
+          Custom Prompt
+        </button>
+        <button
+          onClick={() => setActiveTab('presets')}
+          className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-300 ${
+            activeTab === 'presets'
+              ? 'bg-gradient-to-br from-secondary-500/20 to-secondary-600/20 text-secondary-400 border border-secondary-500/30'
+              : 'text-neutral-400 hover:text-neutral-300 hover:bg-neutral-800/30'
+          }`}
+        >
+          Presets
+        </button>
+      </div>
+
+      {/* Custom Prompt Tab */}
+      {activeTab === 'custom' && (
+        <div className="space-y-4 animate-fade-in">
+          <div className="relative">
+            <textarea
+              value={customPrompt}
+              onChange={(e) => {
+                setCustomPrompt(e.target.value)
+                setDescription('')
+              }}
+              placeholder="Describe the sound you want to create... (e.g., 'A warm, vintage jazz piano with soft reverb')"
+              className="w-full h-32 input resize-none pr-12"
+            />
+            <Sparkles className="absolute top-4 right-4 h-5 w-5 text-primary-400 animate-pulse" />
+          </div>
+          
+          <div className="p-4 bg-neutral-900/30 rounded-xl border border-neutral-800/50">
+            <p className="text-sm text-neutral-400">
+              <strong className="text-neutral-300">Tip:</strong> Be specific about timbre, texture, effects, and mood. 
+              The more detail you provide, the better the AI can match your vision.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Presets Tab */}
+      {activeTab === 'presets' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
+          {presetPrompts.map((preset, index) => (
+            <button
+              key={index}
+              onClick={() => {
+                setDescription(preset.description)
+                setCustomPrompt('')
+              }}
+              className={`p-5 rounded-xl border transition-all duration-300 text-left group ${
+                description === preset.description
+                  ? 'bg-gradient-to-br from-secondary-500/20 to-secondary-600/20 border-secondary-500/50'
+                  : 'bg-neutral-900/30 border-neutral-800/50 hover:border-neutral-700/50 hover:bg-neutral-800/30'
+              }`}
+            >
+              <div className="flex items-start space-x-3">
+                <div className={`p-2 rounded-lg transition-all duration-300 ${
+                  description === preset.description
+                    ? 'bg-secondary-500/20 text-secondary-400'
+                    : 'bg-neutral-800/50 text-neutral-400 group-hover:bg-neutral-700/50'
+                }`}>
+                  <preset.icon className="h-5 w-5" />
+                </div>
+                <div className="flex-1">
+                  <h3 className={`font-semibold mb-1 transition-colors ${
+                    description === preset.description
+                      ? 'text-secondary-400'
+                      : 'text-neutral-300 group-hover:text-neutral-200'
+                  }`}>
+                    {preset.title}
+                  </h3>
+                  <p className="text-sm text-neutral-400">
+                    {preset.description}
+                  </p>
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Selected Description Display */}
+      {(customPrompt || description) && (
+        <div className="p-4 bg-gradient-to-br from-primary-500/10 to-secondary-500/10 rounded-xl border border-primary-500/20 animate-slide-up">
+          <div className="flex items-start space-x-3">
+            <div className="p-2 bg-primary-500/20 rounded-lg">
+              <Wand2 className="h-4 w-4 text-primary-400" />
+            </div>
+            <div className="flex-1">
+              <h4 className="text-sm font-semibold text-primary-400 mb-1">Active Prompt</h4>
+              <p className="text-sm text-neutral-300">
+                {customPrompt || description}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

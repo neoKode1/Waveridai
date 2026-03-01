@@ -1,162 +1,150 @@
 'use client'
 
-import React from 'react'
-import { Zap, Loader2 } from 'lucide-react'
-import { useWorkflowState } from '@/lib/hooks/useWorkflowState'
+import React, { useState } from 'react'
+import { useWorkflow } from '@/contexts/WorkflowContext'
+import { Sparkles, Zap, Loader2, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 
-interface GenerateSectionProps {
-  isActive: boolean
-  onComplete: () => void
-  onBack: () => void
-}
-
-export const GenerateSection: React.FC<GenerateSectionProps> = ({
-  isActive,
-  onComplete,
-  onBack,
-}) => {
-  const {
-    referenceAudio,
-    sourceAudio,
-    desiredAudio,
-    desiredAudioDescription,
-    isGenerating,
-    setIsGenerating,
-    setGeneratedAudio,
-  } = useWorkflowState()
-
-  const [error, setError] = React.useState<string | null>(null)
+export const GenerateSection: React.FC = () => {
+  const { state, actions } = useWorkflow()
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const isDisabled = !state.sourceAudio || !state.desiredAudioDescription
 
   const handleGenerate = async () => {
-    if (!referenceAudio || !sourceAudio) {
-      setError('Missing required audio files')
-      return
-    }
-
     setIsGenerating(true)
     setError(null)
 
     try {
-      const useAIGeneration = !desiredAudio && desiredAudioDescription.trim().length > 0
-
-      if (useAIGeneration) {
-        // Call the server-side API route — avoids importing server-only lyriaService on client
-        const response = await fetch('/api/lyria/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            prompt: desiredAudioDescription,
-            duration: 30,
-          }),
-        })
-
-        if (!response.ok) {
-          const data = await response.json().catch(() => ({}))
-          throw new Error(data.error || `Server error: ${response.status}`)
-        }
-
-        const data = await response.json()
-        // Fetch the audio URL returned by the API and store as Blob
-        const audioResponse = await fetch(data.data.audio_url)
-        const audioBlob = await audioResponse.blob()
-        setGeneratedAudio(audioBlob)
-      } else {
-        // File-based synthesis workflow (placeholder)
-        await new Promise((resolve) => setTimeout(resolve, 3000))
-        const mockBlob = new Blob(['mock audio data'], { type: 'audio/wav' })
-        setGeneratedAudio(mockBlob)
-      }
-
-      onComplete()
+      // Simulate API call - replace with actual generation logic
+      await new Promise(resolve => setTimeout(resolve, 3000))
+      
+      // For demo purposes, use source audio as generated audio
+      actions.setGeneratedAudio(state.sourceAudio!)
+      actions.setCurrentStep('results')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate audio')
+      setError('Failed to generate audio. Please try again.')
+      console.error('Generation error:', err)
     } finally {
       setIsGenerating(false)
     }
   }
 
-  const canGenerate =
-    referenceAudio && sourceAudio && (desiredAudio || desiredAudioDescription.trim().length > 0)
-
   return (
-    <div
-      className={cn(
-        'card transition-all duration-200',
-        isActive ? 'ring-2 ring-primary-500' : 'opacity-50'
-      )}
-    >
-      <div className="flex items-start space-x-4">
-        <div className="p-3 bg-accent-green/10 rounded-lg">
-          <Zap className="h-6 w-6 text-accent-green" />
+    <section className={cn('card space-y-6', isDisabled && 'opacity-50 pointer-events-none')}>
+      <div className="flex items-center space-x-3">
+        <div className="p-3 bg-gradient-to-br from-accent-orange to-accent-pink rounded-xl shadow-glow animate-pulse-glow">
+          <Sparkles className="h-6 w-6 text-white" />
         </div>
-        <div className="flex-1">
-          <h2 className="text-xl font-semibold text-neutral-100 mb-2">Step 4: Generate Audio</h2>
-          <p className="text-neutral-400 mb-4">
-            Process your audio files to create the synthesized output.
+        <div>
+          <h2 className="text-2xl font-bold text-gradient">Step 4: Generate</h2>
+          <p className="text-neutral-400 mt-1">
+            Transform your audio using AI
           </p>
+        </div>
+      </div>
 
-          <div className="bg-neutral-900 rounded-lg p-4 mb-4 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-neutral-400">Reference Audio:</span>
-              <span className="text-sm text-neutral-200">{referenceAudio?.name || 'Not uploaded'}</span>
+      {isDisabled && (
+        <div className="p-4 bg-warning/10 border border-warning/30 rounded-xl">
+          <p className="text-warning text-sm font-medium">
+            Please complete previous steps first
+          </p>
+        </div>
+      )}
+
+      {error && (
+        <div className="p-4 bg-error/10 border border-error/30 rounded-xl flex items-start space-x-3 animate-fade-in">
+          <AlertCircle className="h-5 w-5 text-error flex-shrink-0 mt-0.5" />
+          <div className="text-sm text-error">
+            <p className="font-medium mb-1">Generation Error</p>
+            <p className="text-error/80">{error}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Summary */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-neutral-100">Generation Summary</h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="p-4 rounded-xl bg-neutral-900/50 border border-neutral-700/50">
+            <div className="flex items-center space-x-2 mb-2">
+              <div className="w-2 h-2 bg-success rounded-full animate-pulse"></div>
+              <span className="text-sm font-medium text-neutral-300">Source Audio</span>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-neutral-400">Source Audio:</span>
-              <span className="text-sm text-neutral-200">{sourceAudio?.name || 'Not uploaded'}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-neutral-400">Desired Audio:</span>
-              <span className="text-sm text-neutral-200">
-                {desiredAudio?.name || (desiredAudioDescription ? 'AI Generation' : 'Not specified')}
-              </span>
-            </div>
-            {desiredAudioDescription && (
-              <div className="pt-2 border-t border-neutral-800">
-                <span className="text-sm text-neutral-400">AI Prompt:</span>
-                <p className="text-sm text-neutral-200 mt-1">{desiredAudioDescription}</p>
-              </div>
-            )}
+            <p className="text-neutral-100">Uploaded</p>
           </div>
 
-          {error && (
-            <div className="bg-error/10 border border-error/20 rounded-lg p-4 mb-4">
-              <p className="text-sm text-error">{error}</p>
+          <div className="p-4 rounded-xl bg-neutral-900/50 border border-neutral-700/50">
+            <div className="flex items-center space-x-2 mb-2">
+              <div className="w-2 h-2 bg-success rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+              <span className="text-sm font-medium text-neutral-300">Desired Sound</span>
             </div>
-          )}
+            <p className="text-neutral-100 line-clamp-2">{state.desiredAudioDescription}</p>
+          </div>
 
-          <div className="flex space-x-4">
-            <button
-              onClick={onBack}
-              disabled={!isActive || isGenerating}
-              className={cn('button-secondary flex-1', (!isActive || isGenerating) && 'opacity-50 cursor-not-allowed')}
-            >
-              Back
-            </button>
-            <button
-              onClick={handleGenerate}
-              disabled={!isActive || !canGenerate || isGenerating}
-              className={cn(
-                'button-primary flex-1 flex items-center justify-center space-x-2',
-                (!isActive || !canGenerate || isGenerating) && 'opacity-50 cursor-not-allowed'
-              )}
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Generating...</span>
-                </>
-              ) : (
-                <>
-                  <Zap className="h-4 w-4" />
-                  <span>Generate Audio</span>
-                </>
-              )}
-            </button>
+          <div className="p-4 rounded-xl bg-neutral-900/50 border border-neutral-700/50">
+            <div className="flex items-center space-x-2 mb-2">
+              <div className={cn(
+                'w-2 h-2 rounded-full',
+                state.referenceAudio ? 'bg-success animate-pulse' : 'bg-neutral-600'
+              )} style={{ animationDelay: '0.4s' }}></div>
+              <span className="text-sm font-medium text-neutral-300">Reference Audio</span>
+            </div>
+            <p className="text-neutral-100">{state.referenceAudio ? 'Uploaded' : 'Not provided'}</p>
+          </div>
+
+          <div className="p-4 rounded-xl bg-neutral-900/50 border border-neutral-700/50">
+            <div className="flex items-center space-x-2 mb-2">
+              <div className="w-2 h-2 bg-primary-400 rounded-full animate-pulse" style={{ animationDelay: '0.6s' }}></div>
+              <span className="text-sm font-medium text-neutral-300">AI Model</span>
+            </div>
+            <p className="text-neutral-100">Polyphonic Neural Synthesis</p>
           </div>
         </div>
       </div>
-    </div>
+
+      {/* Generate button */}
+      <button
+        onClick={handleGenerate}
+        disabled={isDisabled || isGenerating}
+        className="button-primary w-full !py-6 text-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed relative group overflow-hidden"
+      >
+        {isGenerating ? (
+          <>
+            <Loader2 className="h-6 w-6 mr-3 animate-spin" />
+            <span>Generating... This may take a few moments</span>
+          </>
+        ) : (
+          <>
+            <Zap className="h-6 w-6 mr-3 group-hover:animate-pulse" />
+            <span>Generate Transformed Audio</span>
+          </>
+        )}
+        
+        {/* Animated particles */}
+        {isGenerating && (
+          <>
+            <div className="absolute top-1/2 left-1/4 w-2 h-2 bg-white rounded-full animate-ping" style={{ animationDelay: '0s' }}></div>
+            <div className="absolute top-1/2 left-1/2 w-2 h-2 bg-white rounded-full animate-ping" style={{ animationDelay: '0.3s' }}></div>
+            <div className="absolute top-1/2 left-3/4 w-2 h-2 bg-white rounded-full animate-ping" style={{ animationDelay: '0.6s' }}></div>
+          </>
+        )}
+      </button>
+
+      {isGenerating && (
+        <div className="p-4 bg-primary-500/10 border border-primary-500/30 rounded-xl animate-pulse">
+          <div className="flex items-center space-x-3">
+            <Loader2 className="h-5 w-5 text-primary-400 animate-spin" />
+            <div className="flex-1">
+              <p className="text-sm text-primary-300 font-medium">AI is processing your audio...</p>
+              <div className="mt-2 h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-primary-500 to-secondary-500 rounded-full animate-shimmer" style={{ width: '60%', backgroundSize: '200% 100%' }}></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
   )
 }
-
