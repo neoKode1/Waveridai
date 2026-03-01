@@ -1,93 +1,89 @@
 'use client'
 
 import React, { useState } from 'react'
-import { useWorkflow } from '@/contexts/WorkflowContext'
-import { Wand2, Sparkles } from 'lucide-react'
-import { cn } from '@/lib/utils/cn'
+import { Music, Sparkles, Wand2, Mic } from 'lucide-react'
 
-export const DesiredAudioSection: React.FC = () => {
-  const { state, actions } = useWorkflow()
-  const [description, setDescription] = useState(state.desiredAudioDescription || '')
-  const [customPrompt, setCustomPrompt] = useState('')
-  const isDisabled = !state.sourceAudio
+interface DesiredAudioSectionProps {
+  audioFile: File | null
+  customPrompt: string
+  setCustomPrompt: (prompt: string) => void
+  description: string
+  setDescription: (desc: string) => void
+}
 
-  const prompts = [
-    { label: 'Piano', value: 'Convert this audio to sound like a grand piano', icon: '🎹' },
-    { label: 'Guitar', value: 'Transform this into acoustic guitar', icon: '🎸' },
-    { label: 'Violin', value: 'Make this sound like a violin orchestra', icon: '🎻' },
-    { label: 'Synth', value: 'Convert to electronic synthesizer', icon: '🎛️' },
-    { label: 'Orchestral', value: 'Transform into full orchestral arrangement', icon: '🎼' },
-    { label: 'Jazz Band', value: 'Convert to jazz band with piano, bass, and drums', icon: '🎺' },
+export const DesiredAudioSection: React.FC<DesiredAudioSectionProps> = ({
+  audioFile,
+  customPrompt,
+  setCustomPrompt,
+  description,
+  setDescription,
+}) => {
+  const [activeTab, setActiveTab] = useState<'custom' | 'presets'>('custom')
+
+  const presetPrompts = [
+    {
+      title: 'Vintage Jazz Piano',
+      description: 'Warm, vintage jazz piano with soft reverb and natural room acoustics',
+      icon: Music,
+    },
+    {
+      title: 'Synthwave Lead',
+      description: 'Retro 80s synthwave lead with lush chorus and tape saturation',
+      icon: Wand2,
+    },
+    {
+      title: 'Orchestral Strings',
+      description: 'Rich orchestral string section with cinematic reverb and subtle vibrato',
+      icon: Music,
+    },
+    {
+      title: 'Lo-fi Hip Hop',
+      description: 'Warm lo-fi hip hop sound with vinyl crackle and tape wobble',
+      icon: Mic,
+    },
   ]
 
-  const handleSubmit = () => {
-    const finalDescription = customPrompt || description
-    if (finalDescription) {
-      actions.setDesiredAudioDescription(finalDescription)
-      actions.setCurrentStep('reference')
-    }
-  }
-
-  const handlePromptSelect = (prompt: string) => {
-    setDescription(prompt)
-    setCustomPrompt('')
-  }
-
   return (
-    <section className={cn('card space-y-6', isDisabled && 'opacity-50 pointer-events-none')}>
-      <div className="flex items-center space-x-3">
-        <div className="p-3 bg-gradient-secondary rounded-xl shadow-glow-cyan">
-          <Wand2 className="h-6 w-6 text-white" />
-        </div>
-        <div>
-          <h2 className="text-2xl font-bold text-gradient">Step 2: Describe Desired Sound</h2>
-          <p className="text-neutral-400 mt-1">
-            Tell us what instrument or sound you want to create
-          </p>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="p-3 bg-gradient-to-br from-secondary-500/20 to-secondary-600/20 rounded-xl border border-secondary-500/30">
+            <Sparkles className="h-6 w-6 text-secondary-400" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-neutral-50">Desired Sound</h2>
+            <p className="text-sm text-neutral-400">Define your target audio characteristics</p>
+          </div>
         </div>
       </div>
 
-      {isDisabled && (
-        <div className="p-4 bg-warning/10 border border-warning/30 rounded-xl">
-          <p className="text-warning text-sm font-medium">
-            Please upload source audio first
-          </p>
-        </div>
-      )}
+      {/* Tab Navigation */}
+      <div className="flex space-x-2 p-1 bg-neutral-900/50 rounded-xl border border-neutral-800/50">
+        <button
+          onClick={() => setActiveTab('custom')}
+          className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-300 ${
+            activeTab === 'custom'
+              ? 'bg-gradient-to-br from-primary-500/20 to-primary-600/20 text-primary-400 border border-primary-500/30'
+              : 'text-neutral-400 hover:text-neutral-300 hover:bg-neutral-800/30'
+          }`}
+        >
+          Custom Prompt
+        </button>
+        <button
+          onClick={() => setActiveTab('presets')}
+          className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-300 ${
+            activeTab === 'presets'
+              ? 'bg-gradient-to-br from-secondary-500/20 to-secondary-600/20 text-secondary-400 border border-secondary-500/30'
+              : 'text-neutral-400 hover:text-neutral-300 hover:bg-neutral-800/30'
+          }`}
+        >
+          Presets
+        </button>
+      </div>
 
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-neutral-300 mb-3">
-            Quick Prompts
-          </label>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {prompts.map((prompt) => (
-              <button
-                key={prompt.label}
-                onClick={() => handlePromptSelect(prompt.value)}
-                className={cn(
-                  'p-4 rounded-xl border-2 text-left transition-all duration-300 group relative overflow-hidden',
-                  description === prompt.value
-                    ? 'border-primary-500 bg-primary-500/10 shadow-glow'
-                    : 'border-neutral-700 bg-neutral-900/50 hover:border-primary-500/50 hover:bg-neutral-800/50'
-                )}
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-primary-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                <div className="relative">
-                  <div className="text-2xl mb-2">{prompt.icon}</div>
-                  <div className="text-sm font-medium text-neutral-100 group-hover:text-primary-300 transition-colors">
-                    {prompt.label}
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-neutral-300 mb-3">
-            Or write your own description
-          </label>
+      {/* Custom Prompt Tab */}
+      {activeTab === 'custom' && (
+        <div className="space-y-4 animate-fade-in">
           <div className="relative">
             <textarea
               value={customPrompt}
@@ -95,29 +91,79 @@ export const DesiredAudioSection: React.FC = () => {
                 setCustomPrompt(e.target.value)
                 setDescription('')
               }}
-              placeholder="Describe the sound you want to create... (e.g., 'A warm, vintage jazz piano with soft reverb')";
+              placeholder="Describe the sound you want to create... (e.g., 'A warm, vintage jazz piano with soft reverb')"
               className="w-full h-32 input resize-none pr-12"
             />
             <Sparkles className="absolute top-4 right-4 h-5 w-5 text-primary-400 animate-pulse" />
           </div>
-        </div>
-
-        {(description || customPrompt) && (
-          <div className="p-4 bg-primary-500/10 border border-primary-500/30 rounded-xl animate-fade-in">
-            <p className="text-sm text-primary-300 font-medium mb-2">Your prompt:</p>
-            <p className="text-neutral-200">{customPrompt || description}</p>
+          
+          <div className="p-4 bg-neutral-900/30 rounded-xl border border-neutral-800/50">
+            <p className="text-sm text-neutral-400">
+              <strong className="text-neutral-300">Tip:</strong> Be specific about timbre, texture, effects, and mood. 
+              The more detail you provide, the better the AI can match your vision.
+            </p>
           </div>
-        )}
+        </div>
+      )}
 
-        <button
-          onClick={handleSubmit}
-          disabled={!description && !customPrompt}
-          className="button-primary w-full !py-4 text-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Wand2 className="h-5 w-5 mr-2" />
-          Continue to Reference Audio
-        </button>
-      </div>
-    </section>
+      {/* Presets Tab */}
+      {activeTab === 'presets' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
+          {presetPrompts.map((preset, index) => (
+            <button
+              key={index}
+              onClick={() => {
+                setDescription(preset.description)
+                setCustomPrompt('')
+              }}
+              className={`p-5 rounded-xl border transition-all duration-300 text-left group ${
+                description === preset.description
+                  ? 'bg-gradient-to-br from-secondary-500/20 to-secondary-600/20 border-secondary-500/50'
+                  : 'bg-neutral-900/30 border-neutral-800/50 hover:border-neutral-700/50 hover:bg-neutral-800/30'
+              }`}
+            >
+              <div className="flex items-start space-x-3">
+                <div className={`p-2 rounded-lg transition-all duration-300 ${
+                  description === preset.description
+                    ? 'bg-secondary-500/20 text-secondary-400'
+                    : 'bg-neutral-800/50 text-neutral-400 group-hover:bg-neutral-700/50'
+                }`}>
+                  <preset.icon className="h-5 w-5" />
+                </div>
+                <div className="flex-1">
+                  <h3 className={`font-semibold mb-1 transition-colors ${
+                    description === preset.description
+                      ? 'text-secondary-400'
+                      : 'text-neutral-300 group-hover:text-neutral-200'
+                  }`}>
+                    {preset.title}
+                  </h3>
+                  <p className="text-sm text-neutral-400">
+                    {preset.description}
+                  </p>
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Selected Description Display */}
+      {(customPrompt || description) && (
+        <div className="p-4 bg-gradient-to-br from-primary-500/10 to-secondary-500/10 rounded-xl border border-primary-500/20 animate-slide-up">
+          <div className="flex items-start space-x-3">
+            <div className="p-2 bg-primary-500/20 rounded-lg">
+              <Wand2 className="h-4 w-4 text-primary-400" />
+            </div>
+            <div className="flex-1">
+              <h4 className="text-sm font-semibold text-primary-400 mb-1">Active Prompt</h4>
+              <p className="text-sm text-neutral-300">
+                {customPrompt || description}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
