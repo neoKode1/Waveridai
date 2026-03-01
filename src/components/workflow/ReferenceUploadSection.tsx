@@ -1,80 +1,83 @@
 'use client'
 
 import React from 'react'
-import { Upload, Music } from 'lucide-react'
+import { useWorkflow } from '@/contexts/WorkflowContext'
 import { AudioUploader } from '@/components/audio/AudioUploader'
 import { WaveformDisplay } from '@/components/audio/WaveformDisplay'
-import { useWorkflowState } from '@/lib/hooks/useWorkflowState'
+import { Music, Info } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 
-interface ReferenceUploadSectionProps {
-  isActive: boolean
-  onComplete: () => void
-}
+export const ReferenceUploadSection: React.FC = () => {
+  const { state, actions } = useWorkflow()
+  const isDisabled = !state.desiredAudioDescription
 
-export const ReferenceUploadSection: React.FC<ReferenceUploadSectionProps> = ({
-  isActive,
-  onComplete,
-}) => {
-  const { referenceAudio, setReferenceAudio } = useWorkflowState()
-
-  const handleUpload = (file: File) => {
-    setReferenceAudio(file)
+  const handleFileSelect = (file: File) => {
+    const url = URL.createObjectURL(file)
+    actions.setReferenceAudio(url)
+    actions.setCurrentStep('generate')
   }
 
-  const handleRemove = () => {
-    setReferenceAudio(null)
+  const handleSkip = () => {
+    actions.setCurrentStep('generate')
   }
 
   return (
-    <div
-      className={cn(
-        'card transition-all duration-200',
-        isActive ? 'ring-2 ring-primary-500' : 'opacity-50'
-      )}
-    >
-      <div className="flex items-start space-x-4">
-        <div className="p-3 bg-primary-500/10 rounded-lg">
-          <Music className="h-6 w-6 text-primary-400" />
+    <section className={cn('card space-y-6', isDisabled && 'opacity-50 pointer-events-none')}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="p-3 bg-gradient-to-br from-accent-purple to-accent-blue rounded-xl shadow-glow">
+            <Music className="h-6 w-6 text-white" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-gradient">Step 3: Reference Audio (Optional)</h2>
+            <p className="text-neutral-400 mt-1">
+              Upload a reference to match the exact timbre and style
+            </p>
+          </div>
         </div>
-        <div className="flex-1">
-          <h2 className="text-xl font-semibold text-neutral-100 mb-2">
-            Step 1: Upload Reference Audio
-          </h2>
-          <p className="text-neutral-400 mb-4">
-            Upload a reference audio file that represents the desired sound/instrument you want to
-            synthesize to.
-          </p>
+        <button
+          onClick={handleSkip}
+          disabled={isDisabled}
+          className="button-secondary"
+        >
+          Skip This Step
+        </button>
+      </div>
 
-          {!referenceAudio ? (
-            <AudioUploader
-              onUpload={handleUpload}
-              accept="audio/*"
-              maxSize={50 * 1024 * 1024}
-              label="Drop reference audio here or click to browse"
-              icon={<Upload className="h-8 w-8" />}
-            />
-          ) : (
-            <div className="space-y-4">
-              <WaveformDisplay
-                audioFile={referenceAudio}
-                onRemove={handleRemove}
-                title="Reference Audio"
-              />
-              <button
-                onClick={onComplete}
-                disabled={!isActive}
-                className={cn(
-                  'button-primary w-full',
-                  !isActive && 'opacity-50 cursor-not-allowed'
-                )}
-              >
-                Continue to Source Audio
-              </button>
-            </div>
-          )}
+      {isDisabled && (
+        <div className="p-4 bg-warning/10 border border-warning/30 rounded-xl">
+          <p className="text-warning text-sm font-medium">
+            Please describe your desired sound first
+          </p>
+        </div>
+      )}
+
+      <div className="p-4 bg-info/10 border border-info/30 rounded-xl flex items-start space-x-3">
+        <Info className="h-5 w-5 text-info flex-shrink-0 mt-0.5" />
+        <div className="text-sm text-info">
+          <p className="font-medium mb-1">What is reference audio?</p>
+          <p className="text-info/80">
+            Reference audio helps the AI match the exact timbre, tone, and style you want. 
+            Upload a sample of the instrument or sound you described for more accurate results.
+          </p>
         </div>
       </div>
-    </div>
+
+      <AudioUploader
+        onFileSelect={handleFileSelect}
+        currentFile={state.referenceAudio ? new File([], 'reference.mp3') : null}
+        label="Upload Reference Audio"
+        description="This audio will be used as a style reference for the transformation"
+      />
+
+      {state.referenceAudio && (
+        <div className="animate-slide-up">
+          <WaveformDisplay
+            audioUrl={state.referenceAudio}
+            title="Reference Audio"
+          />
+        </div>
+      )}
+    </section>
   )
 }
