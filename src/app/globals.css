@@ -30,7 +30,7 @@
 
 @layer base {
   * {
-    @apply border-neutral-700/30;
+    border-color: oklch(25% 0.02 261 / 0.3);
   }
   
   body {
